@@ -868,19 +868,27 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
   const [error, setError] = useState('');
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
+  // Al cambiar de categoría, la descripción pasa a ser el nombre de la categoría,
+  // salvo que el usuario haya escrito una descripción propia.
+  const CAT_LABELS = CATS.map(c => c.label.toLowerCase());
+  const pickCategory = id => setForm(f => {
+    const d = f.description.trim().toLowerCase();
+    const isDefault = !d || CAT_LABELS.includes(d);
+    return { ...f, category: id, description: isDefault ? (CATS.find(c => c.id === id)?.label || '') : f.description };
+  });
+
   const handleCardSelect = cardId => {
     const card = CARDS.find(c=>c.id===cardId);
     set('card',cardId); if(card) set('paidBy',card.owner);
   };
 
   const handleSubmit = () => {
-    if (!quickMode && !form.description.trim()) { setError('Agregá una descripción'); return; }
     const amount = parseAmount(form.amount);
     if (isNaN(amount) || amount <= 0) { setError('Ingresá un monto válido'); return; }
     setError('');
     const base = {
       id:                 initialValues?.id || uid(),
-      description:        form.description.trim() || '',
+      description:        form.description.trim() || CATS.find(c => c.id === form.category)?.label || '',
       amount,
       category:           form.category,
       paidBy:             form.paidBy,
@@ -954,7 +962,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
             <label style={S.label}>Categoría</label>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
               {CATS.map(c=>(
-                <button key={c.id} onClick={()=>set('category',c.id)} style={S.chip(form.category===c.id)}>{c.icon} {c.label}</button>
+                <button key={c.id} onClick={()=>pickCategory(c.id)} style={S.chip(form.category===c.id)}>{c.icon} {c.label}</button>
               ))}
             </div>
           </div>
@@ -964,17 +972,17 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
         <>
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>Descripción</label>
-            <input style={S.input} value={form.description} onChange={e=>set('description',e.target.value)} placeholder="¿En qué gastaron?" />
+            <input style={S.input} value={form.description} onChange={e=>set('description',e.target.value)} placeholder={CATS.find(c => c.id === form.category)?.label || '¿En qué gastaron?'} />
           </div>
 
           <div style={{ display:'flex', gap:10, marginBottom:20 }}>
             <div style={{ flex:1.5 }}>
               <label style={S.label}>Monto ($)</label>
-              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:56, boxSizing:'border-box' }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
+              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:56, lineHeight:'normal', padding:'0 16px', boxSizing:'border-box' }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
-              <input style={{ ...S.input, fontSize:14, height:56, boxSizing:'border-box' }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
+              <input className="date-input" style={{ ...S.input, fontSize:16, height:56, minHeight:56, maxHeight:56, lineHeight:'normal', padding:'0 12px', boxSizing:'border-box', display:'flex', alignItems:'center' }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
             </div>
           </div>
 
@@ -982,7 +990,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
             <label style={S.label}>Categoría</label>
             <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
               {CATS.map(c=>(
-                <button key={c.id} onClick={()=>set('category',c.id)} style={S.chip(form.category===c.id)}>{c.icon} {c.label}</button>
+                <button key={c.id} onClick={()=>pickCategory(c.id)} style={S.chip(form.category===c.id)}>{c.icon} {c.label}</button>
               ))}
             </div>
           </div>
@@ -1632,6 +1640,9 @@ function MainApp({ me, email }) {
         body{margin:0;background:#0F0F0F;}
         input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
         input[type=date]::-webkit-calendar-picker-indicator{opacity:0.4;}
+        .date-input{-webkit-appearance:none;appearance:none;}
+        .date-input::-webkit-date-and-time-value{text-align:left;margin:0;min-height:0;line-height:normal;}
+        .date-input::-webkit-datetime-edit{padding:0;}
         input:focus{border-color:#6E5FF0!important;}
         ::-webkit-scrollbar{display:none;}
         button:active{opacity:0.8;}
