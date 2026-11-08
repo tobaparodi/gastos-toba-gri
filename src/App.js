@@ -112,12 +112,12 @@ const projectRecurring = (recurringExpenses, expenses, month) => {
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
 
 const C = {
-  bg: '#0F0F0F', card: '#1C1C1E', card2: '#2C2C2E', card3: '#3A3A3C',
-  primary: '#E23756', toba: '#A5278E', gri: '#7B5BD8',
-  text: '#FFFFFF', textSec: '#EBEBF5', muted: '#8E8E93', mutedLight: '#636366',
-  border: '#3A3A3C', borderLight: '#48484A',
-  dark: '#636366', success: '#30D158', danger: '#FF453A',
-  selected: '#636366', warn: '#FF9F0A',
+  bg: '#0D0B18', card: '#1A1730', card2: '#252040', card3: '#322D55',
+  primary: '#8B5CF6', toba: '#A855F7', gri: '#6D28D9',
+  text: '#FFFFFF', textSec: '#EDE9FF', muted: '#9B92B8', mutedLight: '#6B6080',
+  border: '#322D55', borderLight: '#3F3A66',
+  dark: '#6B6080', success: '#30D158', danger: '#FF453A',
+  selected: '#4C3D8A', warn: '#FF9F0A',
 };
 const R = { sm: 14, md: 16, lg: 20, pill: 100 };
 const shadow = { sm: '0 1px 3px rgba(0,0,0,0.4)', md: '0 4px 14px rgba(0,0,0,0.5)', lg: '0 8px 28px rgba(0,0,0,0.6)' };
@@ -1637,7 +1637,7 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-        body{margin:0;background:#0F0F0F;}
+        body{margin:0;background:#0D0B18;}
         input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
         input[type=date]::-webkit-calendar-picker-indicator{opacity:0.4;}
         input:focus{border-color:#E23756!important;}
