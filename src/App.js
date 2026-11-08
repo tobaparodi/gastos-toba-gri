@@ -343,7 +343,15 @@ const parseVoiceExpense = (text, me) => {
 
 // ─── VOICE SHEET ─────────────────────────────────────────────────────────────
 
-const getSpeechRecognition = () => (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+// En iPhone con la app instalada en la pantalla de inicio, el reconocimiento de voz de WebKit
+// es inestable y puede congelar la pantalla: ahí vamos directo al dictado del teclado.
+const isIOSStandalone = () => {
+  if (typeof window === 'undefined') return false;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches;
+  return ios && standalone;
+};
+const getSpeechRecognition = () => (typeof window !== 'undefined') && !isIOSStandalone() && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
 function MicIcon({ size = 28, color = '#fff' }) {
   return (
@@ -356,13 +364,14 @@ function MicIcon({ size = 28, color = '#fff' }) {
 
 const linkBtn = { display:'block', margin:'12px auto 0', minHeight:44, background:'none', border:'none', color:C.primaryText, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' };
 const NO_MIC_MSG = 'No pude usar el micrófono dentro de la app. Usá el dictado del teclado: tocá el 🎤 del teclado y decí tu gasto.';
+const KEYBOARD_HINT = 'Tocá el 🎤 del teclado y decí tu gasto.';
 
 function VoiceSheet({ onSave, onClose, me }) {
   const SR = getSpeechRecognition();
   const [mode, setMode]             = useState(SR ? 'idle' : 'type');   // idle | listening | type | review
   const [transcript, setTranscript] = useState('');
   const [typed, setTyped]           = useState('');
-  const [notice, setNotice]         = useState(SR ? '' : NO_MIC_MSG);
+  const [notice, setNotice]         = useState(SR ? '' : KEYBOARD_HINT);
   const [draft, setDraft]           = useState(null);
   const [error, setError]           = useState('');
   const [saved, setSaved]           = useState(false);
@@ -370,7 +379,7 @@ function VoiceSheet({ onSave, onClose, me }) {
   const startTimer = useRef(null);
   const finalRef   = useRef('');
 
-  useEffect(() => () => { try { recRef.current?.abort(); } catch {} clearTimeout(startTimer.current); }, []);
+  useEffect(() => () => { clearTimeout(startTimer.current); killRec(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toReview = text => {
     const r = parseVoiceExpense(text, me);
@@ -384,7 +393,13 @@ function VoiceSheet({ onSave, onClose, me }) {
     setMode('review');
   };
 
-  const fallbackToKeyboard = msg => { clearTimeout(startTimer.current); setNotice(msg); setMode('type'); };
+  const killRec = () => {
+    const r = recRef.current; recRef.current = null;
+    if (!r) return;
+    r.onstart = r.onresult = r.onerror = r.onend = null;
+    try { r.abort(); } catch {}
+  };
+  const fallbackToKeyboard = msg => { clearTimeout(startTimer.current); killRec(); setNotice(msg); setMode('type'); };
 
   const startListening = () => {
     if (!SR) return fallbackToKeyboard(NO_MIC_MSG);
@@ -421,7 +436,7 @@ function VoiceSheet({ onSave, onClose, me }) {
       setNotice(''); setTranscript('');
       rec.start();
       // En algunos iPhone (app en pantalla de inicio) el micrófono nunca arranca: pasamos al teclado.
-      startTimer.current = setTimeout(() => { failed = true; try { rec.abort(); } catch {} fallbackToKeyboard(NO_MIC_MSG); }, 4000);
+      startTimer.current = setTimeout(() => { failed = true; fallbackToKeyboard(NO_MIC_MSG); }, 8000);  // margen para el permiso de micrófono
     } catch {
       fallbackToKeyboard(NO_MIC_MSG);
     }
@@ -487,7 +502,9 @@ function VoiceSheet({ onSave, onClose, me }) {
         {/* ── Respaldo: dictado del teclado ── */}
         {mode === 'type' && (
           <div>
-            {notice && <div style={{ background:'rgba(255,159,10,0.12)', border:'1px solid rgba(255,159,10,0.3)', color:C.warn, borderRadius:R.sm, padding:'12px 14px', fontSize:13, fontWeight:500, lineHeight:1.4, marginBottom:16 }}>{notice}</div>}
+            {notice && <div style={notice === KEYBOARD_HINT
+              ? { display:'flex', alignItems:'center', gap:10, background:C.primarySoft, border:`1px solid ${C.primary}55`, color:C.textSec, borderRadius:R.sm, padding:'12px 14px', fontSize:14, fontWeight:500, lineHeight:1.4, marginBottom:16 }
+              : { background:'rgba(255,159,10,0.12)', border:'1px solid rgba(255,159,10,0.3)', color:C.warn, borderRadius:R.sm, padding:'12px 14px', fontSize:13, fontWeight:500, lineHeight:1.4, marginBottom:16 }}>{notice}</div>}
             <label style={S.label} htmlFor="voice-typed">Tu gasto</label>
             <textarea id="voice-typed" value={typed} onChange={e=>setTyped(e.target.value)} autoFocus rows={2}
               placeholder='Ej.: "gasté 94 mil en el almacén"'
@@ -495,7 +512,9 @@ function VoiceSheet({ onSave, onClose, me }) {
             <button style={{ ...S.btn(C.primary), marginTop:16, opacity: typed.trim() ? 1 : 0.4, cursor: typed.trim() ? 'pointer' : 'default' }} disabled={!typed.trim()} onClick={() => toReview(typed)}>
               Continuar
             </button>
-            {SR && <button onClick={() => { setNotice(''); setMode('idle'); }} style={linkBtn}>Volver al micrófono</button>}
+            {SR
+              ? <button onClick={() => { setNotice(''); setMode('idle'); }} style={linkBtn}>Volver al micrófono</button>
+              : <button onClick={onClose} style={linkBtn}>Cancelar</button>}
           </div>
         )}
 
