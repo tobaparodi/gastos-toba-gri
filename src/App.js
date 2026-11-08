@@ -1393,7 +1393,7 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
   const isFormOpen = view === 'add' || view === 'edit';
 
   return (
-    <nav style={{ position:'fixed', bottom:0, left:0, right:0, background:C.card, borderTop:, display:'flex', alignItems:'flex-end', zIndex:100, paddingBottom: 'env(safe-area-inset-bottom, 10px)' }}>
+    <nav style={{ position:'fixed', bottom:0, left:0, right:0, background:C.card, borderTop:`1px solid ${C.border}`, display:'flex', alignItems:'flex-end', zIndex:100, paddingBottom: 'env(safe-area-inset-bottom, 10px)' }}>
       <Tab id="activity" label="Actividad" Icon={NavActivity} />
       <Tab id="resumen"  label="Resumen"   Icon={NavResumen} />
       <div style={{ flex:1, display:'flex', justifyContent:'center', alignItems:'flex-end', paddingBottom:4 }}>
