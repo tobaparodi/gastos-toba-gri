@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase, signInWithGoogle, signOut, getMember, loadCache, loadRemote, saveRemote, subscribeChanges } from "./sync";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -55,20 +56,12 @@ const parseAmount = str => {
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 
-const KEY = 'gastos-toba-gri-v3';
-// window.storage solo existe dentro de Claude; en la app deployada usamos localStorage.
+// Datos compartidos en Supabase (ver src/sync.js). Cache local para arrancar rápido / sin señal.
 const loadData = async () => {
-  try {
-    if (window.storage) { const r = await window.storage.get(KEY); return r ? JSON.parse(r.value) : null; }
-    const raw = window.localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  try { return await loadRemote(); } catch { return loadCache(); }
 };
-const saveData = async d => {
-  try {
-    if (window.storage) { await window.storage.set(KEY, JSON.stringify(d)); return; }
-    window.localStorage.setItem(KEY, JSON.stringify(d));
-  } catch {}
-};
+const saveData = d =>
+  saveRemote(d).catch(err => { console.error('sync', err); window.dispatchEvent(new CustomEvent('sync-error')); });
 
 // ─── FINANCIAL LOGIC ─────────────────────────────────────────────────────────
 
@@ -1540,7 +1533,7 @@ function CardsView({ expenses, month, setMonth, config }) {
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 
-function Settings({ config, onSave, expenses, settlements, recurringExpenses, onDeleteRecurring, onImport }) {
+function Settings({ config, onSave, expenses, settlements, recurringExpenses, onDeleteRecurring, onImport, email, me, onSignOut }) {
   const [st, setSt] = useState(String(config.salaryToba||''));
   const [sg, setSg] = useState(String(config.salaryGri||''));
   const [saved, setSaved] = useState(false);
@@ -1555,6 +1548,20 @@ function Settings({ config, onSave, expenses, settlements, recurringExpenses, on
   return (
     <div style={{ padding:'24px 16px 16px' }}>
       <h1 style={{ ...S.h1, marginBottom:28 }}>Configuración</h1>
+
+      {/* Cuenta */}
+      <div style={{ ...S.card, marginBottom:14, display:'flex', alignItems:'center', gap:14 }}>
+        <div style={{ width:44, height:44, borderRadius:'50%', background:(me==='gri'?C.gri:C.toba)+'26', color:me==='gri'?C.gri:C.toba, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:17, flexShrink:0 }}>
+          {me==='gri'?'G':'T'}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{me==='gri'?'Gri':'Toba'}</div>
+          <div style={{ fontSize:12, color:C.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{email}</div>
+        </div>
+        <button onClick={onSignOut} style={{ minHeight:40, padding:'0 14px', borderRadius:R.pill, border:`1px solid ${C.border}`, background:'transparent', color:C.text, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit', flexShrink:0 }}>
+          Cerrar sesión
+        </button>
+      </div>
 
       {/* Sueldos */}
       <div style={{ ...S.card, marginBottom:14 }}>
@@ -1715,8 +1722,7 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
 
 // ─── APP ─────────────────────────────────────────────────────────────────────
 
-export default function App() {
-  const VALID_VIEWS = ['activity','resumen','add','edit','cards','settings'];
+function MainApp({ me, email }) {
   const [view,              setView]             = useState('activity');
   const [expenses,          setExpenses]         = useState([]);
   const [settlements,       setSettlements]      = useState([]);
@@ -1729,21 +1735,27 @@ export default function App() {
   const [showChoice,        setShowChoice]        = useState(false);
   const [showQuickForm,     setShowQuickForm]     = useState(false);
   const [showVoice,         setShowVoice]         = useState(false);
-  // Usuario del dispositivo (temporal hasta el login con Google)
-  const me = (() => { try { return window.localStorage.getItem('gastos-device-user') || 'toba'; } catch { return 'toba'; } })();
+  const [syncError,         setSyncError]         = useState(false);
   const [lastUsed,          setLastUsed]          = useState(null);
 
+  const applyData = data => {
+    if (!data) return;
+    setExpenses(data.expenses          || []);
+    setSettlements(data.settlements    || []);
+    setRecurringExpenses(data.recurringExpenses || []);
+    setProjectedMonths(data.projectedMonths || []);
+    setConfig(data.config              || {salaryToba:0,salaryGri:0});
+  };
+
   useEffect(() => {
-    loadData().then(data => {
-      if (data) {
-        setExpenses(data.expenses          || []);
-        setSettlements(data.settlements    || []);
-        setRecurringExpenses(data.recurringExpenses || []);
-        setProjectedMonths(data.projectedMonths || []);
-        setConfig(data.config              || {salaryToba:0,salaryGri:0});
-      }
-      setLoading(false);
-    });
+    const cached = loadCache();
+    if (cached) { applyData(cached); }
+    loadData().then(data => { applyData(data); setLoading(false); });
+    // Cambios hechos desde el otro teléfono
+    const unsub = subscribeChanges(() => loadRemote().then(applyData).catch(() => {}));
+    const onErr = () => { setSyncError(true); setTimeout(() => setSyncError(false), 4000); };
+    window.addEventListener('sync-error', onErr);
+    return () => { unsub(); window.removeEventListener('sync-error', onErr); };
   }, []);
 
   // Proyectar gastos fijos al navegar a un mes no proyectado
@@ -1860,8 +1872,13 @@ export default function App() {
         {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} />}
         {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit />}
         {view==='cards'     && <CardsView expenses={expenses} month={month} setMonth={setMonth} config={config} />}
-        {view==='settings'  && <Settings config={config} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} />}
+        {view==='settings'  && <Settings config={config} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} email={email} me={me} onSignOut={signOut} />}
       </div>
+      {syncError && (
+        <div role="alert" style={{ position:'fixed', left:16, right:16, bottom:'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex:500, background:'#3A1D1B', border:`1px solid ${C.danger}55`, color:'#FFB4AE', borderRadius:R.sm, padding:'12px 14px', fontSize:13, fontWeight:600, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
+          No se pudo sincronizar. Revisá tu conexión: lo cargado queda guardado en este teléfono.
+        </div>
+      )}
       <BottomNav view={view} setView={setView}
         onFabTap={()=>{ if(view==='add'||view==='edit'){setView('activity');} else { setShowQuickForm(true); } }}
         onFabLongPress={()=>{ if(view!=='add'&&view!=='edit') setShowChoice(true); }}
@@ -1882,4 +1899,86 @@ export default function App() {
       )}
     </>
   );
+}
+
+
+// ─── AUTH GATE ───────────────────────────────────────────────────────────────
+
+const GoogleG = () => (
+  <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
+    <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+    <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/>
+  </svg>
+);
+
+const authShell = { minHeight:'100vh', background:C.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px', boxSizing:'border-box', fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif", textAlign:'center' };
+const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); body{margin:0;background:#0F0F0F;} *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}`;
+
+function LoginScreen({ error }) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => { setBusy(true); const { error: e } = await signInWithGoogle(); if (e) setBusy(false); };
+  return (
+    <div style={authShell}>
+      <style>{FONT_CSS}</style>
+      <div style={{ width:72, height:72, borderRadius:22, background:C.primarySoft, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:24 }}>
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="3" stroke={C.primaryText} strokeWidth="1.8"/><path d="M2.5 10h19M7 15h4" stroke={C.primaryText} strokeWidth="1.8" strokeLinecap="round"/></svg>
+      </div>
+      <h1 style={{ fontSize:26, fontWeight:800, color:C.text, margin:'0 0 8px', letterSpacing:'-0.02em' }}>Gastos Toba & Gri</h1>
+      <p style={{ fontSize:15, color:C.muted, margin:'0 0 36px', lineHeight:1.5, maxWidth:300 }}>Los gastos de la casa, divididos según lo que gana cada uno.</p>
+      <button onClick={go} disabled={busy}
+        style={{ width:'100%', maxWidth:340, minHeight:54, display:'flex', alignItems:'center', justifyContent:'center', gap:12, background:'#fff', color:'#1F1F1F', border:'none', borderRadius:R.sm, fontSize:16, fontWeight:700, cursor:busy?'default':'pointer', fontFamily:'inherit', opacity:busy?0.7:1 }}>
+        <GoogleG /> {busy ? 'Abriendo Google…' : 'Continuar con Google'}
+      </button>
+      {error && <div role="alert" style={{ marginTop:16, color:'#FFB4AE', fontSize:13, fontWeight:600, maxWidth:340 }}>{error}</div>}
+      <p style={{ fontSize:12, color:C.mutedLight, marginTop:24 }}>Solo para cuentas habilitadas.</p>
+    </div>
+  );
+}
+
+function AccessDenied({ email }) {
+  return (
+    <div style={authShell}>
+      <style>{FONT_CSS}</style>
+      <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:8 }}>Esta cuenta no tiene acceso</div>
+      <p style={{ fontSize:14, color:C.muted, margin:'0 0 28px', lineHeight:1.5, maxWidth:320 }}>
+        Entraste como <strong style={{ color:C.text }}>{email}</strong>. La app es solo para Toba y Gri.
+      </p>
+      <button onClick={signOut} style={{ ...S.btn(C.primary), maxWidth:340 }}>Usar otra cuenta</button>
+    </div>
+  );
+}
+
+function Splash() {
+  return (
+    <div style={authShell}>
+      <style>{FONT_CSS}</style>
+      <div style={{ width:28, height:28, borderRadius:'50%', border:`3px solid ${C.card3}`, borderTopColor:C.primaryText, animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+export default function App() {
+  const [session, setSession] = useState(undefined);   // undefined = todavía no sabemos
+  const [member,  setMember]  = useState(undefined);   // 'toba' | 'gri' | null
+  const [error,   setError]   = useState('');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session) { setMember(session === null ? null : undefined); return; }
+    setMember(undefined);
+    getMember().then(setMember).catch(() => { setError('No pudimos verificar tu cuenta. Probá de nuevo.'); setMember(null); });
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (session === undefined || (session && member === undefined)) return <Splash />;
+  if (!session) return <LoginScreen error={error} />;
+  if (!member)  return <AccessDenied email={session.user.email} />;
+  return <MainApp me={member} email={session.user.email} />;
 }
