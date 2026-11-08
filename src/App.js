@@ -966,11 +966,11 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           <div style={{ display:'flex', gap:10, marginBottom:20 }}>
             <div style={{ flex:1.5 }}>
               <label style={S.label}>Monto ($)</label>
-              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:58 }} type="text" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" inputMode="decimal" />
+              <input style={{ ...S.input, fontSize:24, fontWeight:800 }} type="text" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" inputMode="decimal" />
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
-              <input style={{ ...S.input, fontSize:13, height:58, boxSizing:'border-box', paddingLeft:12, paddingRight:12 }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
+              <input style={{ ...S.input, fontSize:13 }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
             </div>
           </div>
 
