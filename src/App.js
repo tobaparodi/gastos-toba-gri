@@ -496,8 +496,6 @@ function BarChart({ expenses, month }) {
 
 function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses }) {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  useEffect(() => { window.scrollTo(0, 0); }, []);
-
   const mExps = expenses.filter(e => e.month === month);
   const totalShared = mExps.filter(e => e.split !== 'personal').reduce((s,e) => s+e.amount, 0);
 
@@ -530,9 +528,9 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: '100vh', paddingBottom: 100 }}>
-      {/* Header sticky */}
-      <div style={{ position:'sticky', top:0, zIndex:10, background: C.bg, paddingTop: 'env(safe-area-inset-top, 16px)' }}>
+    <div style={{ background: C.bg, height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header fijo arriba */}
+      <div style={{ flexShrink: 0, background: C.bg, paddingTop: 'env(safe-area-inset-top, 16px)' }}>
         <div style={{ padding:'16px 20px 0' }}>
           {/* Month selector */}
           <button onClick={()=>setShowMonthPicker(true)}
@@ -555,8 +553,8 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
         </div>
       </div>
 
-      {/* Transaction list */}
-      <div style={{ padding:'8px 16px 0' }}>
+      {/* Transaction list — scroll independiente */}
+      <div style={{ flex: 1, overflowY: 'auto', padding:'8px 16px 0', paddingBottom: 100 }}>
         {dates.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:60, gap:16 }}>
             <EmptySVG />
