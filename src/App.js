@@ -22,9 +22,11 @@ const CATS = [
 ];
 
 const CARDS = [
-  { id: 'naranja_x', label: 'Naranja X', owner: 'toba', accent: '#A5278E', bg: '#FFE9F3' },
-  { id: 'galicia',   label: 'Galicia',   owner: 'toba', accent: '#7B2060', bg: '#FFE9F3' },
-  { id: 'cordobesa', label: 'Cordobesa', owner: 'gri',  accent: '#7B5BD8', bg: '#EFEAFA' },
+  // accent: color de texto/realce sobre fondo oscuro (AA) · bg: fondo del header de la card
+  { id: 'naranja_x',    label: 'Naranja X',    owner: 'toba', accent: '#FF8A50', bg: '#2B1D16' },
+  { id: 'galicia',      label: 'Galicia',      owner: 'toba', accent: '#F5B544', bg: '#2A2214' },
+  { id: 'cordobesa',    label: 'Cordobesa',    owner: 'gri',  accent: '#4FCB8D', bg: '#14271E' },
+  { id: 'mercado_pago', label: 'Mercado Pago', owner: 'gri',  accent: '#4DB8F0', bg: '#122431' },
 ];
 
 const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -124,7 +126,7 @@ const projectRecurring = (recurringExpenses, expenses, month) => {
 
 const C = {
   bg: '#0F0F0F', card: '#1C1C1E', card2: '#2C2C2E', card3: '#3A3A3C',
-  primary: '#6E5FF0', primaryText: '#9D93FA', primarySoft: 'rgba(110,95,240,0.16)', toba: '#A5278E', gri: '#7B5BD8',
+  primary: '#6E5FF0', primaryText: '#9D93FA', primarySoft: 'rgba(110,95,240,0.16)', toba: '#F28CCB', gri: '#4FD1C5',
   text: '#FFFFFF', textSec: '#EBEBF5', muted: '#8E8E93', mutedLight: '#636366',
   border: '#3A3A3C', borderLight: '#48484A',
   dark: '#636366', success: '#30D158', danger: '#FF453A',
@@ -149,22 +151,37 @@ const S = {
 
 // ─── SHARED COMPONENTS ───────────────────────────────────────────────────────
 
-function Toggle({ options, value, onChange, colors = {} }) {
+function Toggle({ options, value, onChange, colors = {}, tint = false }) {
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div role="radiogroup" style={{ display: 'flex', gap: 8 }}>
       {options.map(o => {
         const isOn = value === o.value;
-        const activeBg = colors[String(o.value)] || C.selected;
+        const col = colors[String(o.value)] || C.selected;
+        // tint: fondo translúcido + borde y texto del color (dark theme). Sin tint: relleno sólido.
+        const st = tint
+          ? { border: `1.5px solid ${isOn ? col : C.border}`, background: isOn ? col + '1F' : C.card2, color: isOn ? col : C.muted }
+          : { border: `1.5px solid ${isOn ? col : C.border}`, background: isOn ? col : C.card, color: isOn ? '#fff' : C.muted };
         return (
-          <button key={String(o.value)} onClick={() => onChange(o.value)}
-            style={{ flex: 1, padding: '12px 8px', border: `1.5px solid ${isOn ? activeBg : C.border}`, borderRadius: R.sm, cursor: 'pointer', fontSize: 13, fontWeight: isOn ? 700 : 500, fontFamily: 'inherit', background: isOn ? activeBg : C.card, color: isOn ? '#fff' : C.muted, transition: 'all 0.15s' }}>
-            {o.icon && <span style={{ marginRight: 4 }}>{o.icon}</span>}{o.label}
+          <button key={String(o.value)} role="radio" aria-checked={isOn} onClick={() => onChange(o.value)}
+            style={{ flex: 1, minHeight: 48, padding: '12px 8px', borderRadius: R.sm, cursor: 'pointer', fontSize: 14, fontWeight: isOn ? 700 : 500, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all 0.15s', ...st }}>
+            {o.dot && <span style={{ width: 8, height: 8, borderRadius: '50%', background: isOn ? col : C.mutedLight, flexShrink: 0 }} />}
+            {o.icon && <span>{o.icon}</span>}{o.label}
           </button>
         );
       })}
     </div>
   );
 }
+
+// Formatea el monto mientras se escribe: 60000 -> 60.000 · admite decimales con coma (máx. 2)
+const formatAmountInput = raw => {
+  const clean = String(raw).replace(/[^\d,]/g, '');
+  const [intRaw, ...rest] = clean.split(',');
+  const intPart = intRaw.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (!rest.length) return intPart;
+  return (intPart || '0') + ',' + rest.join('').slice(0, 2);
+};
+const amountFromNumber = n => (n || n === 0) && n !== '' ? formatAmountInput(String(n).replace('.', ',')) : '';
 
 function MonthNav({ month, setMonth, children }) {
   return (
@@ -271,8 +288,6 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
     setTimeout(() => { setSaved(false); setAmount(''); }, 1500);
   };
 
-  const cat = CATS.find(c => c.id === category);
-
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:300, display:'flex', alignItems:'flex-end' }} onClick={onClose}>
       <div style={{ background:'#1C1C1E', borderRadius:'24px 24px 0 0', padding:'24px 20px 32px', width:'100%', boxSizing:'border-box' }} onClick={e=>e.stopPropagation()}>
@@ -291,14 +306,14 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
           <div style={{ position:'absolute', left:16, top:'50%', transform:'translateY(-50%)', fontSize:24, fontWeight:800, color:C.muted }}>$</div>
           <input
             style={{ ...S.input, fontSize:32, fontWeight:800, paddingLeft:40, letterSpacing:'-0.02em', border:`2px solid ${C.border}`, borderRadius:R.md }}
-            type="text" value={amount} onChange={e=>setAmount(e.target.value)}
+            type="text" value={amount} onChange={e=>setAmount(formatAmountInput(e.target.value))}
             placeholder="0" inputMode="decimal" autoFocus />
         </div>
 
         {/* Quién pagó */}
         <div style={{ marginBottom:16 }}>
-          <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]}
-            value={paidBy} onChange={setPaidBy} colors={{toba:C.selected,gri:C.primary}} />
+          <Toggle options={[{value:'toba',label:'Toba',dot:true},{value:'gri',label:'Gri',dot:true}]} tint
+            value={paidBy} onChange={setPaidBy} colors={{toba:C.toba,gri:C.gri}} />
         </div>
 
         {/* Categorías — scroll horizontal */}
@@ -312,17 +327,6 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
             ))}
           </div>
         </div>
-
-        {/* Preview */}
-        {parseAmount(amount) > 0 && (
-          <div style={{ background:C.selected+'1A', border:`1px solid ${C.selected}30`, borderRadius:R.sm, padding:'10px 14px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
-            <span style={{ fontSize:22 }}>{cat?.icon}</span>
-            <div>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{fmt(parseAmount(amount))}</div>
-              <div style={{ fontSize:12, color:C.muted }}>pagó {paidBy==='toba'?'Toba':'Gri'} · {cat?.label}</div>
-            </div>
-          </div>
-        )}
 
         {error && <div style={{ color:C.danger, fontSize:13, fontWeight:600, marginBottom:12 }}>{error}</div>}
 
@@ -365,11 +369,11 @@ function SettlementSheet({ currentNet, onSave, onClose }) {
         </p>
         <div style={{ marginBottom:18 }}>
           <label style={S.label}>¿Quién transfirió?</label>
-          <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]} value={from} onChange={setFrom} colors={{toba:C.toba,gri:C.gri}} />
+          <Toggle options={[{value:'toba',label:'Toba',dot:true},{value:'gri',label:'Gri',dot:true}]} tint value={from} onChange={setFrom} colors={{toba:C.toba,gri:C.gri}} />
         </div>
         <div style={{ marginBottom:18 }}>
           <label style={S.label}>Monto ($)</label>
-          <input style={{ ...S.input, fontSize:24, fontWeight:800 }} type="text" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0" inputMode="decimal" />
+          <input style={{ ...S.input, fontSize:24, fontWeight:800 }} type="text" value={amount} onChange={e=>setAmount(formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
         </div>
         <div style={{ marginBottom:18 }}>
           <label style={S.label}>Fecha</label>
@@ -767,7 +771,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
   const [quickMode, setQuickMode] = useState(false);
   const [form, setForm] = useState(() => ({
     description:     initialValues?.description             || '',
-    amount:          String(initialValues?.amount           || ''),
+    amount:          amountFromNumber(initialValues?.amount),
     category:        initialValues?.category                || 'super',
     paidBy:          initialValues?.paidBy                  || 'toba',
     paymentType:     initialValues?.paymentType             || 'efectivo',
@@ -856,13 +860,13 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>Monto ($)</label>
             <input style={{ ...S.input, fontSize:28, fontWeight:800, letterSpacing:'-0.01em' }} type="text"
-              value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" inputMode="decimal" autoFocus />
+              value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" autoFocus />
           </div>
 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>¿Quién pagó?</label>
-            <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]}
-              value={form.paidBy} onChange={v=>set('paidBy',v)} colors={{toba:C.selected,gri:C.primary}} />
+            <Toggle options={[{value:'toba',label:'Toba',dot:true},{value:'gri',label:'Gri',dot:true}]} tint
+              value={form.paidBy} onChange={v=>set('paidBy',v)} colors={{toba:C.toba,gri:C.gri}} />
           </div>
 
           <div style={{ marginBottom:24 }}>
@@ -885,7 +889,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           <div style={{ display:'flex', gap:10, marginBottom:20 }}>
             <div style={{ flex:1.5 }}>
               <label style={S.label}>Monto ($)</label>
-              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:58 }} type="text" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" inputMode="decimal" />
+              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:58 }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
@@ -904,8 +908,8 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>¿Quién pagó?</label>
-            <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]}
-              value={form.paidBy} onChange={v=>set('paidBy',v)} colors={{toba:C.selected,gri:C.primary}} />
+            <Toggle options={[{value:'toba',label:'Toba',dot:true},{value:'gri',label:'Gri',dot:true}]} tint
+              value={form.paidBy} onChange={v=>set('paidBy',v)} colors={{toba:C.toba,gri:C.gri}} />
           </div>
 
           <div style={{ marginBottom:20 }}>
@@ -917,10 +921,10 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           {form.paymentType==='tarjeta' && (
             <div style={{ marginBottom:20 }}>
               <label style={S.label}>¿Qué tarjeta?</label>
-              <div style={{ display:'flex', gap:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {CARDS.map(c=>(
                   <button key={c.id} onClick={()=>handleCardSelect(c.id)}
-                    style={{ flex:1, padding:'12px 8px', borderRadius:R.sm, border:`2px solid ${form.card===c.id?c.accent:C.border}`, background:form.card===c.id?c.bg:C.card, cursor:'pointer', fontFamily:'inherit' }}>
+                    style={{ minWidth:0, padding:'12px 8px', borderRadius:R.sm, border:`2px solid ${form.card===c.id?c.accent:C.border}`, background:form.card===c.id?c.bg:C.card, cursor:'pointer', fontFamily:'inherit' }}>
                     <div style={{ fontSize:13, fontWeight:700, color:form.card===c.id?c.accent:C.text }}>{c.label}</div>
                     <div style={{ fontSize:11, color:C.muted, marginTop:3 }}>{c.owner==='toba'?'Toba':'Gri'}</div>
                   </button>
@@ -982,14 +986,14 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           )}
 
           {isEdit && initialValues?.installments && (
-            <div style={{ marginBottom:24, padding:'12px 14px', background:'#F7F7F7', borderRadius:R.sm, border:`1px solid ${C.border}` }}>
+            <div style={{ marginBottom:24, padding:'12px 14px', background:C.card2, borderRadius:R.sm, border:`1px solid ${C.border}` }}>
               <div style={{ fontSize:13, color:C.muted }}>Cuota <strong style={{ color:C.text }}>{initialValues.installments.current}/{initialValues.installments.total}</strong> — Las otras cuotas no se modifican</div>
             </div>
           )}
         </>
       )}
 
-      {error && <div style={{ background:'#FFF1F0', border:`1px solid ${C.danger}30`, color:C.danger, borderRadius:R.sm, padding:'12px 14px', marginBottom:16, fontSize:13, fontWeight:600 }}>{error}</div>}
+      {error && <div style={{ background:'rgba(255,69,58,0.12)', border:`1px solid ${C.danger}30`, color:C.danger, borderRadius:R.sm, padding:'12px 14px', marginBottom:16, fontSize:13, fontWeight:600 }}>{error}</div>}
 
       <button style={S.btn(isEdit?C.selected:saved?C.success:C.primary)} onClick={handleSubmit}>
         {isEdit?'Guardar cambios':saved?'✓ Gasto guardado':'Agregar gasto'}
@@ -1060,7 +1064,7 @@ function ExpenseList({ expenses, month, setMonth, config, onEdit, onDelete }) {
         return (
           <div key={exp.id} style={{ ...S.card, cursor:'pointer', padding:16 }} onClick={()=>setExpandedId(isExp?null:exp.id)}>
             <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
-              <div style={{ width:44, height:44, borderRadius:R.sm, background:'#F7F7F7', border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0, position:'relative' }}>
+              <div style={{ width:44, height:44, borderRadius:R.sm, background:C.card2, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0, position:'relative' }}>
                 {cat.icon}
                 {exp.recurringId && <div style={{ position:'absolute', top:-5, right:-5, fontSize:10 }}>🔁</div>}
               </div>
@@ -1154,7 +1158,7 @@ function CardsView({ expenses, month, setMonth, config }) {
         return (
           <div key={card.id} style={{ ...S.card, overflow:'hidden', padding:0 }}>
             {/* Header */}
-            <div style={{ background:card.bg, padding:'18px 20px', borderBottom:`1px solid ${card.accent}20` }}>
+            <div style={{ background:card.bg, padding:'18px 20px', borderBottom:`1px solid ${card.accent}33` }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontSize:16, fontWeight:800, color:card.accent }}>💳 {card.label}</div>
@@ -1204,7 +1208,7 @@ function CardsView({ expenses, month, setMonth, config }) {
                           </div>
                         </div>
                         {/* Progress bar */}
-                        <div style={{ height:4, background:'#EBEBEB', borderRadius:R.pill }}>
+                        <div style={{ height:4, background:C.card3, borderRadius:R.pill }}>
                           <div style={{ height:'100%', width:`${progress*100}%`, background:card.accent, borderRadius:R.pill, transition:'width 0.3s' }} />
                         </div>
                       </div>
@@ -1280,7 +1284,7 @@ function Settings({ config, onSave, expenses, settlements, recurringExpenses, on
           <input style={S.input} type="number" value={sg} onChange={e=>setSg(e.target.value)} placeholder="0" inputMode="numeric" />
         </div>
         {(t>0||g>0) && (
-          <div style={{ background:'#F7F7F7', borderRadius:R.sm, padding:'14px 16px', marginBottom:20 }}>
+          <div style={{ background:C.card2, borderRadius:R.sm, padding:'14px 16px', marginBottom:20 }}>
             <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:12 }}>Proporcional resultante</div>
             <div style={{ display:'flex', gap:20 }}>
               <div><div style={{ fontSize:11, color:C.muted, marginBottom:4 }}>Toba</div><div style={{ fontSize:22, fontWeight:800, color:C.toba }}>{fmtPct(p.t)}</div></div>
@@ -1310,7 +1314,7 @@ function Settings({ config, onSave, expenses, settlements, recurringExpenses, on
               {i>0&&<div style={{ ...S.divider, margin:'12px 0' }} />}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <div style={{ width:40, height:40, borderRadius:R.sm, background:'#F7F7F7', border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>{cat.icon}</div>
+                  <div style={{ width:40, height:40, borderRadius:R.sm, background:C.card2, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>{cat.icon}</div>
                   <div>
                     <div style={{ fontSize:14, fontWeight:600, color:C.text }}>{r.description||'Sin descripción'}</div>
                     <div style={{ fontSize:11, color:C.muted, marginTop:2 }}>
@@ -1339,7 +1343,7 @@ function Settings({ config, onSave, expenses, settlements, recurringExpenses, on
         <input ref={fileRef} type="file" accept=".json" style={{ display:'none' }} onChange={handleImport} />
       </div>
 
-      <div style={{ ...S.card, background:'#F7F7F7', border:'none' }}>
+      <div style={{ ...S.card, background:C.card2, border:'none' }}>
         <div style={{ fontSize:13, color:C.muted }}>
           <strong style={{ color:C.text }}>{expenses.length}</strong> gastos · <strong style={{ color:C.text }}>{recurringExpenses.length}</strong> fijos · <strong style={{ color:C.text }}>{settlements.length}</strong> pagos
         </div>
@@ -1407,13 +1411,16 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
           onMouseLeave={()=>clearTimeout(longPressTimer.current)}
           onTouchStart={handleFabTouchStart}
           onTouchEnd={handleFabTouchEnd}
+          aria-label={isFormOpen ? 'Cerrar' : 'Agregar gasto (mantené presionado para más opciones)'}
           style={{ width:54, height:54, borderRadius:R.pill, border:'none', cursor:'pointer',
             background: isFormOpen ? C.selected : C.primary,
             boxShadow: isFormOpen ? shadow.md : '0 4px 20px rgba(110,95,240,0.45)',
             transform:'translateY(-14px)', display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:28, fontWeight:300, color:'#fff', fontFamily:'inherit', transition:'all 0.2s',
+            padding:0, color:'#fff', fontFamily:'inherit', transition:'all 0.2s',
             userSelect:'none', WebkitUserSelect:'none' }}>
-          {isFormOpen ? '✕' : '+'}
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display:'block', transition:'transform 0.2s', transform: isFormOpen ? 'rotate(45deg)' : 'none' }}>
+            <path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"/>
+          </svg>
         </button>
       </div>
       <Tab id="cards"    label="Tarjetas"  Icon={NavCards} />
