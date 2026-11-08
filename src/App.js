@@ -54,8 +54,19 @@ const parseAmount = str => {
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 
 const KEY = 'gastos-toba-gri-v3';
-const loadData = async () => { try { const r = await window.storage.get(KEY); return r ? JSON.parse(r.value) : null; } catch { return null; } };
-const saveData = async d  => { try { await window.storage.set(KEY, JSON.stringify(d)); } catch {} };
+// window.storage solo existe dentro de Claude; en la app deployada usamos localStorage.
+const loadData = async () => {
+  try {
+    if (window.storage) { const r = await window.storage.get(KEY); return r ? JSON.parse(r.value) : null; }
+    const raw = window.localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+const saveData = async d => {
+  try {
+    if (window.storage) { await window.storage.set(KEY, JSON.stringify(d)); return; }
+    window.localStorage.setItem(KEY, JSON.stringify(d));
+  } catch {}
+};
 
 // ─── FINANCIAL LOGIC ─────────────────────────────────────────────────────────
 
@@ -113,7 +124,7 @@ const projectRecurring = (recurringExpenses, expenses, month) => {
 
 const C = {
   bg: '#0F0F0F', card: '#1C1C1E', card2: '#2C2C2E', card3: '#3A3A3C',
-  primary: '#E23756', toba: '#A5278E', gri: '#7B5BD8',
+  primary: '#6E5FF0', primaryText: '#9D93FA', primarySoft: 'rgba(110,95,240,0.16)', toba: '#A5278E', gri: '#7B5BD8',
   text: '#FFFFFF', textSec: '#EBEBF5', muted: '#8E8E93', mutedLight: '#636366',
   border: '#3A3A3C', borderLight: '#48484A',
   dark: '#636366', success: '#30D158', danger: '#FF453A',
@@ -123,7 +134,7 @@ const R = { sm: 14, md: 16, lg: 20, pill: 100 };
 const shadow = { sm: '0 1px 3px rgba(0,0,0,0.4)', md: '0 4px 14px rgba(0,0,0,0.5)', lg: '0 8px 28px rgba(0,0,0,0.6)' };
 
 const S = {
-  screen:  { background: C.bg, minHeight: '100vh', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", paddingBottom: 96 },
+  screen:  { background: C.bg, minHeight: '100vh', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))' },
   card:    { background: C.card, borderRadius: R.md, padding: 20, border: `1px solid ${C.border}`, marginBottom: 12, boxShadow: shadow.sm },
   cardLg:  { background: C.card, borderRadius: R.lg, padding: 24, boxShadow: shadow.lg, marginBottom: 14 },
   label:   { fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 8, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' },
@@ -132,7 +143,7 @@ const S = {
   h2:      { fontSize: 16, fontWeight: 700, color: C.text, margin: 0 },
   divider: { height: 1, background: C.border },
   badge:   col => ({ background: col+'22', color: col, borderRadius: R.sm, padding: '4px 10px', fontSize: 11, fontWeight: 700, display: 'inline-block' }),
-  chip:    (active, col = C.primary) => ({ padding: '7px 14px', borderRadius: R.pill, border: `1px solid ${active ? col+'66' : C.border}`, background: active ? col+'22' : 'transparent', color: active ? col : C.muted, cursor: 'pointer', fontSize: 13, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.15s' }),
+  chip:    (active, col = C.primaryText) => ({ padding: '7px 14px', borderRadius: R.pill, border: `1px solid ${active ? col+'66' : C.border}`, background: active ? col+'22' : 'transparent', color: active ? col : C.muted, cursor: 'pointer', fontSize: 13, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap', flexShrink: 0, fontFamily: 'inherit', transition: 'all 0.15s' }),
   btn:     (bg = C.primary, col = '#fff') => ({ background: bg, color: col, border: 'none', borderRadius: R.sm, padding: '15px 20px', fontWeight: 700, fontSize: 15, cursor: 'pointer', width: '100%', fontFamily: 'inherit' }),
 };
 
@@ -412,7 +423,7 @@ function MonthPickerSheet({ month, onChange, onClose }) {
         <div style={{ display:'flex', gap:8, overflowX:'auto', marginBottom:20, paddingBottom:4 }}>
           {years.map(y => (
             <button key={y} onClick={()=>setSelectedYear(y)}
-              style={{ flexShrink:0, padding:'8px 16px', borderRadius:100, border:`1px solid ${y===selectedYear?'#E23756':'#3A3A3C'}`, background:y===selectedYear?'rgba(226,55,86,0.15)':'transparent', color:y===selectedYear?'#E23756':'#8E8E93', fontSize:14, fontWeight:y===selectedYear?700:500, cursor:'pointer', fontFamily:'inherit' }}>
+              style={{ flexShrink:0, padding:'8px 16px', borderRadius:100, border:`1px solid ${y===selectedYear?C.primary:'#3A3A3C'}`, background:y===selectedYear?C.primarySoft:'transparent', color:y===selectedYear?C.primaryText:'#8E8E93', fontSize:14, fontWeight:y===selectedYear?700:500, cursor:'pointer', fontFamily:'inherit' }}>
               {y}
             </button>
           ))}
@@ -425,9 +436,9 @@ function MonthPickerSheet({ month, onChange, onClose }) {
             const isSelected = i === selMo && selectedYear === selYr;
             return (
               <button key={m} onClick={()=>handleSelect(i)}
-                style={{ padding:'14px 8px', borderRadius:14, border:`1px solid ${isSelected?'#E23756':disabled?'transparent':'#3A3A3C'}`,
-                  background:isSelected?'rgba(226,55,86,0.18)':'transparent',
-                  color:isSelected?'#E23756':disabled?'#3A3A3C':'#FFFFFF',
+                style={{ padding:'14px 8px', borderRadius:14, border:`1px solid ${isSelected?C.primary:disabled?'transparent':'#3A3A3C'}`,
+                  background:isSelected?C.primarySoft:'transparent',
+                  color:isSelected?C.primaryText:disabled?'#3A3A3C':'#FFFFFF',
                   fontSize:15, fontWeight:isSelected?700:500, cursor:disabled?'default':'pointer',
                   fontFamily:'inherit', transition:'all 0.1s' }}>
                 {m}
@@ -456,42 +467,35 @@ function BarChart({ expenses, month }) {
   });
   const vals = Array.from({length: daysInMonth}, (_, i) => byDay[i+1] || 0);
   const max = Math.max(...vals, 1);
-  const chartH = 60;
-  const barW = Math.floor(300 / daysInMonth);
+  const chartH = 64;   // alto del área de barras
+  const BASE_GAP = 1;  // las barras quedan 1px por encima de la línea punteada
   const today = new Date().getDate();
   const isCurrentMonth = month === new Date().toISOString().slice(0,7);
+  const labels = [1, 8, 15, 22, daysInMonth];
 
   return (
-    <div style={{ padding:'0 0 4px' }}>
-      <svg width="100%" height={chartH + 20} viewBox={`0 0 300 ${chartH + 20}`} preserveAspectRatio="none" style={{ display:'block' }}>
+    <div style={{ padding:'0 0 4px' }} aria-hidden="true">
+      {/* Barras */}
+      <div style={{ display:'flex', alignItems:'flex-end', gap:2, height:chartH, paddingBottom:BASE_GAP, boxSizing:'content-box' }}>
         {vals.map((v, i) => {
-          const h = Math.max(2, Math.round((v / max) * chartH));
-          const x = i * (300 / daysInMonth);
+          const h = v === 0 ? 0 : Math.max(4, Math.round((v / max) * chartH));
           const isToday = isCurrentMonth && (i + 1) === today;
-          const isFuture = isCurrentMonth && (i + 1) > today;
           return (
-            <rect key={i}
-              x={x + 1} y={chartH - h} width={Math.max(1, barW - 2)} height={h}
-              rx="2"
-              fill={isToday ? '#E23756' : isFuture ? '#2C2C2E' : '#3A3A3C'}
-              opacity={v === 0 ? 0.3 : 1}
-            />
+            <div key={i} style={{
+              flex:1, minWidth:0, height:h, borderRadius:'3px 3px 1px 1px',
+              background: isToday ? C.primaryText : '#8E8E93', transition:'height 0.3s ease',
+            }} />
           );
         })}
-        {/* Avg line */}
-        {(() => {
-          const activeDays = vals.filter(v => v > 0).length;
-          const avg = activeDays ? vals.reduce((a,b)=>a+b,0) / daysInMonth : 0;
-          if (!avg) return null;
-          const avgY = chartH - Math.round((avg / max) * chartH);
-          return <line x1="0" y1={avgY} x2="300" y2={avgY} stroke="#636366" strokeWidth="0.8" strokeDasharray="4 3" />;
-        })()}
-        {/* Day labels */}
-        {[1, 8, 16, 23, daysInMonth].map(d => (
-          <text key={d} x={((d-1) * 300/daysInMonth) + barW/2} y={chartH + 14}
-            fill="#636366" fontSize="9" textAnchor="middle">{d}</text>
+      </div>
+      {/* Línea base punteada */}
+      <div style={{ height:0, borderTop:`1px dashed ${C.borderLight}` }} />
+      {/* Etiquetas de días */}
+      <div style={{ position:'relative', height:18, marginTop:4 }}>
+        {labels.map(d => (
+          <span key={d} style={{ position:'absolute', top:0, left:`${((d - 0.5) / daysInMonth) * 100}%`, transform:'translateX(-50%)', fontSize:11, lineHeight:'14px', color:C.muted, fontVariantNumeric:'tabular-nums' }}>{d}</span>
         ))}
-      </svg>
+      </div>
     </div>
   );
 }
@@ -537,7 +541,7 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
         <div style={{ padding:'16px 20px 0' }}>
           {/* Month selector */}
           <button onClick={()=>setShowMonthPicker(true)}
-            style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', cursor:'pointer', padding:'4px 0', fontFamily:'inherit' }}>
+            style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, margin:'0 auto', minHeight:44, background:'transparent', border:'none', cursor:'pointer', padding:'4px 12px', fontFamily:'inherit' }}>
             <span style={{ fontSize:14, fontWeight:600, color:'#8E8E93' }}>
               {month === new Date().toISOString().slice(0,7) ? 'Este mes' : monthLabel(month)}
             </span>
@@ -547,7 +551,7 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
           </button>
 
           {/* Total amount */}
-          <div style={{ fontSize: 46, fontWeight: 800, color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1, marginTop: 2, marginBottom: 12 }}>
+          <div style={{ fontSize: 46, fontWeight: 800, color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1, marginTop: 0, marginBottom: 20, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
             {fmt(totalShared)}
           </div>
 
@@ -1346,10 +1350,10 @@ function Settings({ config, onSave, expenses, settlements, recurringExpenses, on
 
 // ─── BOTTOM NAV ──────────────────────────────────────────────────────────────
 
-const NavActivity = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primary:'#636366'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h7"/></svg>;
-const NavResumen  = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primary:'#636366'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>;
-const NavCards    = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primary:'#636366'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>;
-const NavConfig   = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primary:'#636366'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
+const NavActivity = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primaryText:'#8E8E93'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h7"/></svg>;
+const NavResumen  = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primaryText:'#8E8E93'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>;
+const NavCards    = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primaryText:'#8E8E93'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>;
+const NavConfig   = ({a}) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a?C.primaryText:'#8E8E93'} strokeWidth={a?2.2:1.8} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
 
 function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
   const longPressTimer = useRef(null);
@@ -1383,9 +1387,9 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
   const Tab = ({id, label, Icon}) => {
     const active = view === id;
     return (
-      <button onClick={()=>setView(id)} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, border:'none', background:'none', cursor:'pointer', padding:'10px 0 6px', fontFamily:'inherit' }}>
+      <button onClick={()=>setView(id)} aria-current={active?'page':undefined} style={{ flex:1, minWidth:0, minHeight:56, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:4, border:'none', background:'none', cursor:'pointer', padding:'12px 0 8px', fontFamily:'inherit' }}>
         <Icon a={active} />
-        <span style={{ fontSize:10, fontWeight:active?700:500, color:active?C.primary:'#636366', letterSpacing:'0.01em' }}>{label}</span>
+        <span style={{ fontSize:11, lineHeight:'14px', whiteSpace:'nowrap', fontWeight:active?700:500, color:active?C.primaryText:'#8E8E93', letterSpacing:'0.01em' }}>{label}</span>
       </button>
     );
   };
@@ -1393,7 +1397,7 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
   const isFormOpen = view === 'add' || view === 'edit';
 
   return (
-    <nav style={{ position:'fixed', bottom:0, left:0, right:0, background:C.card, borderTop:`1px solid ${C.border}`, display:'flex', alignItems:'flex-end', zIndex:100, paddingBottom: 'env(safe-area-inset-bottom, 10px)' }}>
+    <nav style={{ position:'fixed', bottom:0, left:0, right:0, background:C.card, borderTop:`1px solid ${C.border}`, display:'flex', alignItems:'flex-end', zIndex:100, padding: '0 16px', paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 14px)' }}>
       <Tab id="activity" label="Actividad" Icon={NavActivity} />
       <Tab id="resumen"  label="Resumen"   Icon={NavResumen} />
       <div style={{ flex:1, display:'flex', justifyContent:'center', alignItems:'flex-end', paddingBottom:4 }}>
@@ -1405,7 +1409,7 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
           onTouchEnd={handleFabTouchEnd}
           style={{ width:54, height:54, borderRadius:R.pill, border:'none', cursor:'pointer',
             background: isFormOpen ? C.selected : C.primary,
-            boxShadow: isFormOpen ? shadow.md : '0 4px 20px rgba(226,55,86,0.45)',
+            boxShadow: isFormOpen ? shadow.md : '0 4px 20px rgba(110,95,240,0.45)',
             transform:'translateY(-14px)', display:'flex', alignItems:'center', justifyContent:'center',
             fontSize:28, fontWeight:300, color:'#fff', fontFamily:'inherit', transition:'all 0.2s',
             userSelect:'none', WebkitUserSelect:'none' }}>
@@ -1552,7 +1556,7 @@ export default function App() {
         body{margin:0;background:#0F0F0F;}
         input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
         input[type=date]::-webkit-calendar-picker-indicator{opacity:0.4;}
-        input:focus{border-color:#E23756!important;}
+        input:focus{border-color:#6E5FF0!important;}
         ::-webkit-scrollbar{display:none;}
         button:active{opacity:0.8;}
       `}</style>
