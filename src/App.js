@@ -1421,7 +1421,8 @@ function BottomNav({ view, setView, onFabTap, onFabLongPress }) {
 // ─── APP ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [view,              setView]             = useState('dashboard');
+  const VALID_VIEWS = ['activity','resumen','add','edit','cards','settings'];
+  const [view,              setView]             = useState('activity');
   const [expenses,          setExpenses]         = useState([]);
   const [settlements,       setSettlements]      = useState([]);
   const [recurringExpenses, setRecurringExpenses]= useState([]);
