@@ -22,9 +22,10 @@ const CATS = [
 ];
 
 const CARDS = [
-  { id: 'naranja_x', label: 'Naranja X', owner: 'toba', accent: '#A5278E', bg: '#FFE9F3' },
-  { id: 'galicia',   label: 'Galicia',   owner: 'toba', accent: '#7B2060', bg: '#FFE9F3' },
-  { id: 'cordobesa', label: 'Cordobesa', owner: 'gri',  accent: '#7B5BD8', bg: '#EFEAFA' },
+  { id: 'naranja_x',    label: 'Naranja X',    owner: 'toba', accent: '#FF6B35', bg: '#1E1510' },
+  { id: 'galicia',      label: 'Galicia',      owner: 'toba', accent: '#D4A843', bg: '#1A1610' },
+  { id: 'cordobesa',    label: 'Cordobesa',    owner: 'gri',  accent: '#8B5CF6', bg: '#16122A' },
+  { id: 'mercadopago',  label: 'Mercado Pago', owner: 'gri',  accent: '#009EE3', bg: '#0A1620' },
 ];
 
 const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -49,6 +50,13 @@ const calcPcts = (t, g) => { const s = t + g; return s ? { t: t/s, g: g/s } : { 
 const parseAmount = str => {
   if (!str) return NaN;
   return parseFloat(String(str).trim().replace(/\./g, '').replace(',', '.'));
+};
+const formatThousands = val => {
+  const digits = String(val).replace(/\./g, '').replace(/[^0-9,]/g, '');
+  if (!digits) return '';
+  const [int, dec] = digits.split(',');
+  const formatted = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return dec !== undefined ? `${formatted},${dec}` : formatted;
 };
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
@@ -278,13 +286,13 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
           <div style={{ position:'absolute', left:16, top:'50%', transform:'translateY(-50%)', fontSize:24, fontWeight:800, color:C.muted }}>$</div>
           <input
             style={{ ...S.input, fontSize:32, fontWeight:800, paddingLeft:40, letterSpacing:'-0.02em', border:`2px solid ${C.border}`, borderRadius:R.md }}
-            type="text" value={amount} onChange={e=>setAmount(e.target.value)}
+            type="text" value={amount} onChange={e=>setAmount(formatThousands(e.target.value))}
             placeholder="0" inputMode="decimal" autoFocus />
         </div>
 
         {/* Quién pagó */}
         <div style={{ marginBottom:16 }}>
-          <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]}
+          <Toggle options={[{value:'toba',label:'Toba'},{value:'gri',label:'Gri'}]}
             value={paidBy} onChange={setPaidBy} colors={{toba:C.selected,gri:C.primary}} />
         </div>
 
@@ -299,17 +307,6 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
             ))}
           </div>
         </div>
-
-        {/* Preview */}
-        {parseAmount(amount) > 0 && (
-          <div style={{ background:C.selected+'1A', border:`1px solid ${C.selected}30`, borderRadius:R.sm, padding:'10px 14px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
-            <span style={{ fontSize:22 }}>{cat?.icon}</span>
-            <div>
-              <div style={{ fontSize:14, fontWeight:700, color:C.text }}>{fmt(parseAmount(amount))}</div>
-              <div style={{ fontSize:12, color:C.muted }}>pagó {paidBy==='toba'?'Toba':'Gri'} · {cat?.label}</div>
-            </div>
-          </div>
-        )}
 
         {error && <div style={{ color:C.danger, fontSize:13, fontWeight:600, marginBottom:12 }}>{error}</div>}
 
@@ -352,7 +349,7 @@ function SettlementSheet({ currentNet, onSave, onClose }) {
         </p>
         <div style={{ marginBottom:18 }}>
           <label style={S.label}>¿Quién transfirió?</label>
-          <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]} value={from} onChange={setFrom} colors={{toba:C.toba,gri:C.gri}} />
+          <Toggle options={[{value:'toba',label:'Toba'},{value:'gri',label:'Gri'}]} value={from} onChange={setFrom} colors={{toba:C.toba,gri:C.gri}} />
         </div>
         <div style={{ marginBottom:18 }}>
           <label style={S.label}>Monto ($)</label>
@@ -410,7 +407,7 @@ function MonthPickerSheet({ month, onChange, onClose }) {
         <div style={{ display:'flex', gap:8, overflowX:'auto', marginBottom:20, paddingBottom:4 }}>
           {years.map(y => (
             <button key={y} onClick={()=>setSelectedYear(y)}
-              style={{ flexShrink:0, padding:'8px 16px', borderRadius:100, border:`1px solid ${y===selectedYear?'#E23756':'#3A3A3C'}`, background:y===selectedYear?'rgba(226,55,86,0.15)':'transparent', color:y===selectedYear?'#E23756':'#8E8E93', fontSize:14, fontWeight:y===selectedYear?700:500, cursor:'pointer', fontFamily:'inherit' }}>
+              style={{ flexShrink:0, padding:'8px 16px', borderRadius:100, border:`1px solid ${y===selectedYear?C.primary:'#3A3A3C'}`, background:y===selectedYear?C.primary+'22':'transparent', color:y===selectedYear?C.primary:'#8E8E93', fontSize:14, fontWeight:y===selectedYear?700:500, cursor:'pointer', fontFamily:'inherit' }}>
               {y}
             </button>
           ))}
@@ -423,9 +420,9 @@ function MonthPickerSheet({ month, onChange, onClose }) {
             const isSelected = i === selMo && selectedYear === selYr;
             return (
               <button key={m} onClick={()=>handleSelect(i)}
-                style={{ padding:'14px 8px', borderRadius:14, border:`1px solid ${isSelected?'#E23756':disabled?'transparent':'#3A3A3C'}`,
-                  background:isSelected?'rgba(226,55,86,0.18)':'transparent',
-                  color:isSelected?'#E23756':disabled?'#3A3A3C':'#FFFFFF',
+                style={{ padding:'14px 8px', borderRadius:14, border:`1px solid ${isSelected?C.primary:disabled?'transparent':'#3A3A3C'}`,
+                  background:isSelected?C.primary+'2A':'transparent',
+                  color:isSelected?C.primary:disabled?'#3A3A3C':'#FFFFFF',
                   fontSize:15, fontWeight:isSelected?700:500, cursor:disabled?'default':'pointer',
                   fontFamily:'inherit', transition:'all 0.1s' }}>
                 {m}
@@ -471,7 +468,7 @@ function BarChart({ expenses, month }) {
             <rect key={i}
               x={x + 1} y={chartH - h} width={Math.max(1, barW - 2)} height={h}
               rx="2"
-              fill={isToday ? '#E23756' : isFuture ? '#2C2C2E' : '#3A3A3C'}
+              fill={isToday ? C.primary : isFuture ? '#2C2C2E' : C.card3}
               opacity={v === 0 ? 0.3 : 1}
             />
           );
@@ -612,10 +609,10 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
     <div style={{ background: C.bg, height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header fijo arriba */}
       <div style={{ flexShrink: 0, background: C.bg, paddingTop: 'env(safe-area-inset-top, 16px)' }}>
-        <div style={{ padding:'16px 20px 0' }}>
+        <div style={{ padding:'16px 20px 0', textAlign:'center' }}>
           {/* Month selector */}
           <button onClick={()=>setShowMonthPicker(true)}
-            style={{ display:'flex', alignItems:'center', gap:6, background:'transparent', border:'none', cursor:'pointer', padding:'4px 0', fontFamily:'inherit' }}>
+            style={{ display:'inline-flex', alignItems:'center', gap:6, background:'transparent', border:'none', cursor:'pointer', padding:'4px 0', fontFamily:'inherit' }}>
             <span style={{ fontSize:14, fontWeight:600, color:'#8E8E93' }}>
               {month === new Date().toISOString().slice(0,7) ? 'Este mes' : monthLabel(month)}
             </span>
@@ -625,7 +622,7 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
           </button>
 
           {/* Total amount */}
-          <div style={{ fontSize: 46, fontWeight: 800, color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1, marginTop: 2, marginBottom: 12 }}>
+          <div style={{ fontSize: 52, fontWeight: 800, color: C.text, letterSpacing: '-0.03em', lineHeight: 1.1, marginTop: 4, marginBottom: 16 }}>
             {fmt(totalShared)}
           </div>
 
@@ -945,7 +942,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>¿Quién pagó?</label>
-            <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]}
+            <Toggle options={[{value:'toba',label:'Toba'},{value:'gri',label:'Gri'}]}
               value={form.paidBy} onChange={v=>set('paidBy',v)} colors={{toba:C.selected,gri:C.primary}} />
           </div>
 
@@ -973,7 +970,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
-              <input style={{ ...S.input, fontSize:13, height:58 }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
+              <input style={{ ...S.input, fontSize:13, height:58, boxSizing:'border-box', paddingLeft:12, paddingRight:12 }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
             </div>
           </div>
 
@@ -988,7 +985,7 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>¿Quién pagó?</label>
-            <Toggle options={[{value:'toba',label:'Toba',icon:'●'},{value:'gri',label:'Gri',icon:'●'}]}
+            <Toggle options={[{value:'toba',label:'Toba'},{value:'gri',label:'Gri'}]}
               value={form.paidBy} onChange={v=>set('paidBy',v)} colors={{toba:C.selected,gri:C.primary}} />
           </div>
 
