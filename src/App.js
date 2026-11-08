@@ -193,7 +193,6 @@ function MonthNav({ month, setMonth, children }) {
   );
 }
 
-// ─── QUICK ADD SHEET ─────────────────────────────────────────────────────────
 
 // ─── CHOICE SHEET ────────────────────────────────────────────────────────────
 
@@ -216,10 +215,10 @@ function ChoiceSheet({ onQuick, onFull, onVoice, onClose }) {
         {/* Carga rápida */}
         <button onClick={onQuick}
           style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', marginBottom:10, cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box' }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:'#A5278E22', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:'#9D93FA22', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <svg width="24" height="24" viewBox="0 0 26 26" fill="none">
-              <path d="M9 2L4 14h7l-2 10 11-14h-8z" fill="#A5278E" opacity="0.2"/>
-              <path d="M9 2L4 14h7l-2 10 11-14h-8z" stroke="#A5278E" strokeWidth="1.8" strokeLinejoin="round"/>
+              <path d="M9 2L4 14h7l-2 10 11-14h-8z" fill="#9D93FA" opacity="0.2"/>
+              <path d="M9 2L4 14h7l-2 10 11-14h-8z" stroke="#9D93FA" strokeWidth="1.8" strokeLinejoin="round"/>
             </svg>
           </div>
           <div>
@@ -232,11 +231,11 @@ function ChoiceSheet({ onQuick, onFull, onVoice, onClose }) {
         {/* Gasto completo */}
         <button onClick={onFull}
           style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', marginBottom:10, cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box' }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:'#7B5BD822', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:'#4DB8F022', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <svg width="22" height="24" viewBox="0 0 24 26" fill="none">
-              <rect x="2" y="1" width="20" height="24" rx="4" fill="#7B5BD8" opacity="0.2"/>
-              <rect x="2" y="1" width="20" height="24" rx="4" stroke="#7B5BD8" strokeWidth="1.6"/>
-              <path d="M7 8h10M7 13h10M7 18h6" stroke="#7B5BD8" strokeWidth="1.8" strokeLinecap="round"/>
+              <rect x="2" y="1" width="20" height="24" rx="4" fill="#4DB8F0" opacity="0.2"/>
+              <rect x="2" y="1" width="20" height="24" rx="4" stroke="#4DB8F0" strokeWidth="1.6"/>
+              <path d="M7 8h10M7 13h10M7 18h6" stroke="#4DB8F0" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
           <div>
@@ -247,7 +246,7 @@ function ChoiceSheet({ onQuick, onFull, onVoice, onClose }) {
 
         {/* Por voz */}
         <button onClick={onVoice}
-          style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box', opacity:0.5 }}>
+          style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box' }}>
           <div style={{ width:52, height:52, borderRadius:14, background:'#30D15822', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <rect x="9" y="2" width="6" height="12" rx="3" fill="#30D158" opacity="0.25" stroke="#30D158" strokeWidth="1.6"/>
@@ -256,10 +255,295 @@ function ChoiceSheet({ onQuick, onFull, onVoice, onClose }) {
           </div>
           <div>
             <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginBottom:3 }}>Por voz</div>
-            <div style={{ fontSize:13, color:'#8E8E93' }}>Próximamente</div>
+            <div style={{ fontSize:13, color:'#8E8E93' }}>Decí el monto y la categoría</div>
           </div>
         </button>
 
+      </div>
+    </div>
+  );
+}
+
+// ─── VOICE: PARSER ───────────────────────────────────────────────────────────
+// Interpreta frases como "gasté 94 mil en el almacén", "pagó Gri 12.500 de nafta",
+// "noventa y cuatro mil quinientos con Naranja". 100% local, sin servidor.
+
+const norm = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+const NUM_WORDS = {
+  cero:0, un:1, uno:1, una:1, dos:2, tres:3, cuatro:4, cinco:5, seis:6, siete:7, ocho:8, nueve:9,
+  diez:10, once:11, doce:12, trece:13, catorce:14, quince:15, dieciseis:16, diecisiete:17, dieciocho:18, diecinueve:19,
+  veinte:20, veintiuno:21, veintiun:21, veintidos:22, veintitres:23, veinticuatro:24, veinticinco:25, veintiseis:26, veintisiete:27, veintiocho:28, veintinueve:29,
+  treinta:30, cuarenta:40, cincuenta:50, sesenta:60, setenta:70, ochenta:80, noventa:90,
+  cien:100, ciento:100, doscientos:200, doscientas:200, trescientos:300, trescientas:300, cuatrocientos:400, cuatrocientas:400,
+  quinientos:500, quinientas:500, seiscientos:600, seiscientas:600, setecientos:700, setecientas:700,
+  ochocientos:800, ochocientas:800, novecientos:900, novecientas:900,
+};
+
+const parseDigitToken = tok => {
+  // 94.000 · 94000 · 1,5 · 94.000,50
+  if (!/^\d[\d.,]*$/.test(tok)) return null;
+  let t = tok.replace(/[.,]$/, '');
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+  else if (/^\d+,\d+$/.test(t)) t = t.replace(',', '.');
+  else if (/^\d+\.\d{1,2}$/.test(t)) { /* decimal con punto */ }
+  else t = t.replace(/[.,]/g, '');
+  const n = parseFloat(t);
+  return isNaN(n) ? null : n;
+};
+
+const extractAmount = text => {
+  const toks = norm(text).replace(/\$/g, ' ').replace(/(\d)\s*k\b/g, '$1 mil').split(/\s+/).filter(Boolean);
+  const spans = [];
+  let total = 0, cur = 0, inNum = false;
+  const close = () => { if (inNum) spans.push(total + cur); total = 0; cur = 0; inNum = false; };
+  for (const tok of toks) {
+    const d = parseDigitToken(tok);
+    if (d !== null)                   { cur += d; inNum = true; continue; }
+    if (NUM_WORDS[tok] !== undefined) { cur += NUM_WORDS[tok]; inNum = true; continue; }
+    if (tok === 'mil')                { total += (cur || 1) * 1000; cur = 0; inNum = true; continue; }
+    if (/^millon(es)?$/.test(tok))    { total = (total + (cur || 1)) * 1e6; cur = 0; inNum = true; continue; }
+    if (tok === 'y' && inNum)         continue;
+    if (tok === 'medio' && inNum)     { cur += 0.5; continue; }
+    close();
+  }
+  close();
+  const valid = spans.filter(n => n > 0);
+  return valid.length ? Math.round(Math.max(...valid) * 100) / 100 : null;
+};
+
+const CAT_KEYWORDS = {
+  super:         ['super','supermercado','chino','carrefour','coto','disco','vea','jumbo','changomas','walmart'],
+  almacen:       ['almacen','kiosco','kiosko','despensa','verduleria','verdura','carniceria','carne','panaderia','pan','fiambreria','dietetica'],
+  comida:        ['delivery','resto','restaurante','restaurant','pedidosya','pedidos ya','rappi','pizza','hamburguesa','sushi','empanadas','comida','cena','almuerzo','bar','cafe','helado','birra','cerveza'],
+  nafta:         ['nafta','combustible','ypf','shell','axion','gnc','estacion de servicio'],
+  hogar:         ['hogar','casa','limpieza','ferreteria','muebles','bazar','luz','gas','agua','internet'],
+  alquiler:      ['alquiler'],
+  expensas:      ['expensas'],
+  suscripciones: ['suscripcion','suscripciones','netflix','spotify','disney','youtube','icloud','hbo','prime','chatgpt','claude'],
+  mascotas:      ['mascota','mascotas','veterinaria','veterinario','perro','gato','alimento','balanceado'],
+  salud:         ['salud','farmacia','medico','remedio','remedios','medicamento','obra social','prepaga','dentista','psicologo'],
+  ropa:          ['ropa','zapatillas','zapatos','remera','pantalon','campera','vestido'],
+  regalos:       ['regalo','regalos','cumple','cumpleanos'],
+  entreten:      ['ocio','cine','entrada','entradas','recital','show','teatro','salida','boliche'],
+  prestamo:      ['prestamo','preste','prestado'],
+  peajes:        ['peaje','peajes','autopista'],
+};
+
+const CARD_KEYWORDS = { naranja_x:['naranja'], galicia:['galicia'], cordobesa:['cordobesa','bancor'], mercado_pago:['mercado pago','mercadopago'] };
+
+const hasWord = (txt, w) => new RegExp(`(^|[^a-z0-9])${w}([^a-z0-9]|$)`).test(txt);
+
+const parseVoiceExpense = (text, me) => {
+  const t = norm(text);
+  const amount = extractAmount(text);
+  let category = null;
+  for (const [id, kws] of Object.entries(CAT_KEYWORDS)) if (kws.some(k => hasWord(t, k))) { category = id; break; }
+  let paidBy = me, payerSaid = false;
+  if (['gri','cri','gris','greta'].some(w => hasWord(t, w))) { paidBy = 'gri'; payerSaid = true; }
+  else if (['toba','tobi','tobias'].some(w => hasWord(t, w))) { paidBy = 'toba'; payerSaid = true; }
+  let card = null;
+  for (const [id, kws] of Object.entries(CARD_KEYWORDS)) if (kws.some(k => hasWord(t, k))) { card = id; break; }
+  const split = hasWord(t, 'personal') ? 'personal' : 'compartido';
+  return { amount, category, paidBy, payerSaid, card, split };
+};
+
+// ─── VOICE SHEET ─────────────────────────────────────────────────────────────
+
+const getSpeechRecognition = () => (typeof window !== 'undefined') && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+function MicIcon({ size = 28, color = '#fff' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="9" y="2.5" width="6" height="12" rx="3" stroke={color} strokeWidth="2"/>
+      <path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+const linkBtn = { display:'block', margin:'12px auto 0', minHeight:44, background:'none', border:'none', color:C.primaryText, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit' };
+const NO_MIC_MSG = 'No pude usar el micrófono dentro de la app. Usá el dictado del teclado: tocá el 🎤 del teclado y decí tu gasto.';
+
+function VoiceSheet({ onSave, onClose, me }) {
+  const SR = getSpeechRecognition();
+  const [mode, setMode]             = useState(SR ? 'idle' : 'type');   // idle | listening | type | review
+  const [transcript, setTranscript] = useState('');
+  const [typed, setTyped]           = useState('');
+  const [notice, setNotice]         = useState(SR ? '' : NO_MIC_MSG);
+  const [draft, setDraft]           = useState(null);
+  const [error, setError]           = useState('');
+  const [saved, setSaved]           = useState(false);
+  const recRef     = useRef(null);
+  const startTimer = useRef(null);
+  const finalRef   = useRef('');
+
+  useEffect(() => () => { try { recRef.current?.abort(); } catch {} clearTimeout(startTimer.current); }, []);
+
+  const toReview = text => {
+    const r = parseVoiceExpense(text, me);
+    setTranscript(text);
+    setDraft({
+      amountStr: r.amount ? formatAmountInput(String(r.amount).replace('.', ',')) : '',
+      category: r.category || 'otros', categoryGuessed: !!r.category,
+      paidBy: r.paidBy, card: r.card, split: r.split,
+    });
+    setError(r.amount ? '' : 'No entendí el monto. Escribilo arriba.');
+    setMode('review');
+  };
+
+  const fallbackToKeyboard = msg => { clearTimeout(startTimer.current); setNotice(msg); setMode('type'); };
+
+  const startListening = () => {
+    if (!SR) return fallbackToKeyboard(NO_MIC_MSG);
+    try {
+      const rec = new SR();
+      rec.lang = 'es-AR'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+      finalRef.current = '';
+      let failed = false;
+      rec.onstart  = () => { clearTimeout(startTimer.current); setMode('listening'); };
+      rec.onresult = e => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i];
+          if (r.isFinal) finalRef.current += r[0].transcript; else interim += r[0].transcript;
+        }
+        setTranscript((finalRef.current + ' ' + interim).trim());
+      };
+      rec.onerror = e => {
+        if (e.error === 'aborted') return;
+        failed = true;
+        if (e.error === 'no-speech') { setMode('idle'); setNotice('No escuché nada. Probá de nuevo.'); return; }
+        fallbackToKeyboard(NO_MIC_MSG);
+      };
+      rec.onend = () => {
+        recRef.current = null;
+        if (failed) return;
+        setTranscript(prev => {
+          const txt = (finalRef.current || prev).trim();
+          if (txt) setTimeout(() => toReview(txt), 0); else setMode(m => (m === 'listening' ? 'idle' : m));
+          return txt;
+        });
+      };
+      recRef.current = rec;
+      setNotice(''); setTranscript('');
+      rec.start();
+      // En algunos iPhone (app en pantalla de inicio) el micrófono nunca arranca: pasamos al teclado.
+      startTimer.current = setTimeout(() => { failed = true; try { rec.abort(); } catch {} fallbackToKeyboard(NO_MIC_MSG); }, 4000);
+    } catch {
+      fallbackToKeyboard(NO_MIC_MSG);
+    }
+  };
+
+  const stopListening = () => { try { recRef.current?.stop(); } catch {} };
+
+  const handleSave = () => {
+    const amt = parseAmount(draft.amountStr);
+    if (isNaN(amt) || amt <= 0) { setError('Ingresá un monto'); return; }
+    onSave({
+      id: uid(), description: CATS.find(c => c.id === draft.category)?.label || '', amount: amt,
+      category: draft.category, paidBy: draft.paidBy,
+      paymentType: draft.card ? 'tarjeta' : 'efectivo', card: draft.card, split: draft.split,
+      installments: null, installmentGroupId: null, recurringId: null,
+      date: todayStr(), month: curMonth(),
+    });
+    setSaved(true);
+    setTimeout(onClose, 900);
+  };
+
+  const set  = (k, v) => setDraft(d => ({ ...d, [k]: v }));
+  const card = draft?.card && CARDS.find(c => c.id === draft.card);
+  const listening = mode === 'listening';
+  const restart = () => { setDraft(null); setTranscript(''); setTyped(''); setError(''); setNotice(''); setMode(SR ? 'idle' : 'type'); };
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:300, display:'flex', alignItems:'flex-end' }} onClick={onClose}>
+      <style>{`@keyframes vpulse{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.8);opacity:0}}`}</style>
+      <div role="dialog" aria-label="Cargar gasto por voz" style={{ background:C.card, borderRadius:'24px 24px 0 0', padding:'14px 20px calc(24px + env(safe-area-inset-bottom, 0px))', width:'100%', boxSizing:'border-box', maxHeight:'92vh', overflowY:'auto' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ width:36, height:4, background:C.border, borderRadius:99, margin:'0 auto 16px' }} />
+
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text }}>{mode === 'review' ? 'Confirmá el gasto' : 'Carga por voz'}</div>
+            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{mode === 'review' ? 'Revisá antes de guardar' : 'Ej.: "gasté 94 mil en el almacén"'}</div>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" style={{ width:36, height:36, borderRadius:'50%', background:C.card2, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M12 4L4 12M4 4l8 8" stroke="#8E8E93" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+
+        {/* ── Micrófono ── */}
+        {(mode === 'idle' || listening) && (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'8px 0 4px' }}>
+            <div style={{ position:'relative', width:96, height:96, marginBottom:20 }}>
+              {listening && <span style={{ position:'absolute', inset:0, borderRadius:'50%', background:C.primary, animation:'vpulse 1.4s ease-out infinite' }} />}
+              <button onClick={listening ? stopListening : startListening} aria-label={listening ? 'Terminar' : 'Empezar a hablar'}
+                style={{ position:'relative', width:96, height:96, borderRadius:'50%', border:'none', cursor:'pointer', background: listening ? C.danger : C.primary, boxShadow:'0 8px 28px rgba(110,95,240,0.45)', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.2s', padding:0 }}>
+                {listening ? <span style={{ width:26, height:26, borderRadius:6, background:'#fff' }} /> : <MicIcon size={36} />}
+              </button>
+            </div>
+            <div aria-live="polite" style={{ minHeight:48, fontSize:17, fontWeight:600, color: transcript ? C.text : C.muted, textAlign:'center', lineHeight:1.4, padding:'0 8px' }}>
+              {transcript ? `“${transcript}”` : listening ? 'Te escucho…' : 'Tocá el micrófono y decí tu gasto'}
+            </div>
+            {notice && <div style={{ fontSize:13, color:C.warn, textAlign:'center', marginTop:8 }}>{notice}</div>}
+            <button onClick={() => { stopListening(); setNotice(''); setMode('type'); }} style={{ ...linkBtn, marginTop:20 }}>
+              Escribir o dictar con el teclado
+            </button>
+          </div>
+        )}
+
+        {/* ── Respaldo: dictado del teclado ── */}
+        {mode === 'type' && (
+          <div>
+            {notice && <div style={{ background:'rgba(255,159,10,0.12)', border:'1px solid rgba(255,159,10,0.3)', color:C.warn, borderRadius:R.sm, padding:'12px 14px', fontSize:13, fontWeight:500, lineHeight:1.4, marginBottom:16 }}>{notice}</div>}
+            <label style={S.label} htmlFor="voice-typed">Tu gasto</label>
+            <textarea id="voice-typed" value={typed} onChange={e=>setTyped(e.target.value)} autoFocus rows={2}
+              placeholder='Ej.: "gasté 94 mil en el almacén"'
+              style={{ ...S.input, fontSize:17, lineHeight:1.4, resize:'none', minHeight:84 }} />
+            <button style={{ ...S.btn(C.primary), marginTop:16, opacity: typed.trim() ? 1 : 0.4, cursor: typed.trim() ? 'pointer' : 'default' }} disabled={!typed.trim()} onClick={() => toReview(typed)}>
+              Continuar
+            </button>
+            {SR && <button onClick={() => { setNotice(''); setMode('idle'); }} style={linkBtn}>Volver al micrófono</button>}
+          </div>
+        )}
+
+        {/* ── Confirmación ── */}
+        {mode === 'review' && draft && (
+          <div>
+            <div style={{ fontSize:13, color:C.muted, marginBottom:14, lineHeight:1.4 }}>“{transcript}”</div>
+
+            <div style={{ position:'relative', marginBottom:16 }}>
+              <div style={{ position:'absolute', left:16, top:'50%', transform:'translateY(-50%)', fontSize:24, fontWeight:800, color:C.muted }}>$</div>
+              <input aria-label="Monto" type="text" inputMode="decimal" value={draft.amountStr} placeholder="0"
+                onChange={e => { set('amountStr', formatAmountInput(e.target.value)); setError(''); }}
+                autoFocus={!draft.amountStr}
+                style={{ ...S.input, fontSize:32, fontWeight:800, paddingLeft:40, letterSpacing:'-0.02em', border:`2px solid ${error ? C.danger : C.border}`, borderRadius:R.md }} />
+            </div>
+            {error && <div role="alert" style={{ color:C.danger, fontSize:13, fontWeight:600, margin:'-8px 0 14px' }}>{error}</div>}
+
+            <div style={{ marginBottom:16 }}>
+              <Toggle options={[{value:'toba',label:'Toba',dot:true},{value:'gri',label:'Gri',dot:true}]} tint
+                value={draft.paidBy} onChange={v => set('paidBy', v)} colors={{toba:C.toba,gri:C.gri}} />
+            </div>
+
+            <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:4, marginBottom:12 }}>
+              {[...CATS].sort((a,b) => (b.id===draft.category) - (a.id===draft.category)).map(c => (
+                <button key={c.id} onClick={() => set('category', c.id)} style={{ ...S.chip(draft.category===c.id), padding:'7px 12px', fontSize:12, flexShrink:0 }}>
+                  {c.icon} {c.label}
+                </button>
+              ))}
+            </div>
+            {!draft.categoryGuessed && <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>No reconocí la categoría, elegila arriba.</div>}
+
+            <div style={{ fontSize:13, color:C.muted, marginBottom:20 }}>
+              {card ? `💳 ${card.label}` : '💵 Efectivo'} · {draft.split === 'personal' ? 'Personal' : 'Compartido'} · Hoy
+            </div>
+
+            <button style={S.btn(saved ? C.success : C.primary)} onClick={saved ? undefined : handleSave}>
+              {saved ? '✓ Guardado' : 'Guardar gasto'}
+            </button>
+            {!saved && <button onClick={restart} style={linkBtn}>Volver a dictar</button>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -694,12 +978,12 @@ function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSe
         <div style={{ background:C.card, borderRadius:20, padding:'20px', marginBottom:12, border:`1px solid ${C.border}` }}>
           <div style={{ fontSize:12, fontWeight:600, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:14 }}>Pagaron este mes</div>
           <div style={{ display:'flex', gap:10 }}>
-            <div style={{ flex:1, background:'#A5278E18', borderRadius:14, padding:'14px' }}>
+            <div style={{ flex:1, background:C.toba+'18', borderRadius:14, padding:'14px' }}>
               <div style={{ fontSize:11, color:C.toba, fontWeight:700, marginBottom:4 }}>TOBA</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{fmt(tobaTotal)}</div>
               <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{fmtPct(p.t)} del total</div>
             </div>
-            <div style={{ flex:1, background:'#7B5BD818', borderRadius:14, padding:'14px' }}>
+            <div style={{ flex:1, background:C.gri+'18', borderRadius:14, padding:'14px' }}>
               <div style={{ fontSize:11, color:C.gri, fontWeight:700, marginBottom:4 }}>GRI</div>
               <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{fmt(griTotal)}</div>
               <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{fmtPct(p.g)} del total</div>
@@ -1444,6 +1728,9 @@ export default function App() {
   const [editingExpense,    setEditingExpense]    = useState(null);
   const [showChoice,        setShowChoice]        = useState(false);
   const [showQuickForm,     setShowQuickForm]     = useState(false);
+  const [showVoice,         setShowVoice]         = useState(false);
+  // Usuario del dispositivo (temporal hasta el login con Google)
+  const me = (() => { try { return window.localStorage.getItem('gastos-device-user') || 'toba'; } catch { return 'toba'; } })();
   const [lastUsed,          setLastUsed]          = useState(null);
 
   useEffect(() => {
@@ -1584,8 +1871,11 @@ export default function App() {
           onClose={()=>setShowChoice(false)}
           onQuick={()=>{ setShowChoice(false); setTimeout(()=>setShowQuickForm(true), 80); }}
           onFull={()=>{ setShowChoice(false); setTimeout(()=>setView('add'), 80); }}
-          onVoice={()=>{ setShowChoice(false); }}
+          onVoice={()=>{ setShowChoice(false); setTimeout(()=>setShowVoice(true), 80); }}
         />
+      )}
+      {showVoice && (
+        <VoiceSheet me={me} onSave={e=>{ const u=[...expenses,e]; setExpenses(u); setLastUsed(e); persist(u, config, settlements, recurringExpenses, projectedMonths); }} onClose={()=>setShowVoice(false)} />
       )}
       {showQuickForm && (
         <QuickAddSheet onSave={e=>handleQuickAdd(e)} onClose={()=>setShowQuickForm(false)} lastUsed={lastUsed} />
