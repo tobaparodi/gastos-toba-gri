@@ -177,12 +177,12 @@ function MonthNav({ month, setMonth, children }) {
 
 // ─── CHOICE SHEET ────────────────────────────────────────────────────────────
 
-function ChoiceSheet({ onQuick, onFull, onVoice, onClose }) {
+function ChoiceSheet({ onQuick, onFull, onClose }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:300, display:'flex', alignItems:'flex-end' }} onClick={onClose}>
-      <div style={{ background:'#1C1C1E', borderRadius:'24px 24px 0 0', padding:'14px 16px 40px', width:'100%', boxSizing:'border-box', position:'relative' }} onClick={e=>e.stopPropagation()}>
+      <div style={{ background:'#1C1C1E', borderRadius:'24px 24px 0 0', padding:'14px 16px 48px', width:'100%', boxSizing:'border-box', position:'relative' }} onClick={e=>e.stopPropagation()}>
 
-        <div style={{ width:36, height:4, background:'#3A3A3C', borderRadius:99, margin:'0 auto 16px' }} />
+        <div style={{ width:36, height:4, background:'#3A3A3C', borderRadius:99, margin:'0 auto 20px' }} />
 
         <button onClick={onClose}
           style={{ position:'absolute', right:16, top:14, width:34, height:34, borderRadius:'50%', background:'#2C2C2E', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -191,52 +191,37 @@ function ChoiceSheet({ onQuick, onFull, onVoice, onClose }) {
           </svg>
         </button>
 
-        <div style={{ height:36 }} />
+        <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginBottom:20, paddingLeft:4 }}>Registrar gasto</div>
 
         {/* Carga rápida */}
         <button onClick={onQuick}
           style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', marginBottom:10, cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box' }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:'#A5278E22', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:'#8B5CF622', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <svg width="24" height="24" viewBox="0 0 26 26" fill="none">
-              <path d="M9 2L4 14h7l-2 10 11-14h-8z" fill="#A5278E" opacity="0.2"/>
-              <path d="M9 2L4 14h7l-2 10 11-14h-8z" stroke="#A5278E" strokeWidth="1.8" strokeLinejoin="round"/>
+              <path d="M9 2L4 14h7l-2 10 11-14h-8z" fill="#8B5CF6" opacity="0.3"/>
+              <path d="M9 2L4 14h7l-2 10 11-14h-8z" stroke="#8B5CF6" strokeWidth="1.8" strokeLinejoin="round"/>
             </svg>
           </div>
           <div>
             <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginBottom:3 }}>Carga rápida</div>
-            <div style={{ fontSize:13, color:'#8E8E93' }}>Monto y categoría</div>
+            <div style={{ fontSize:13, color:'#8E8E93' }}>Monto, quién pagó y categoría</div>
           </div>
-          <div style={{ marginLeft:'auto', fontSize:12, color:'#636366', fontWeight:600 }}>Default</div>
+          <div style={{ marginLeft:'auto', fontSize:11, color:C.primary, fontWeight:700, background:C.primary+'18', borderRadius:8, padding:'4px 8px' }}>Default</div>
         </button>
 
         {/* Gasto completo */}
         <button onClick={onFull}
-          style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', marginBottom:10, cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box' }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:'#7B5BD822', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box' }}>
+          <div style={{ width:52, height:52, borderRadius:14, background:'#6D28D922', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <svg width="22" height="24" viewBox="0 0 24 26" fill="none">
-              <rect x="2" y="1" width="20" height="24" rx="4" fill="#7B5BD8" opacity="0.2"/>
-              <rect x="2" y="1" width="20" height="24" rx="4" stroke="#7B5BD8" strokeWidth="1.6"/>
-              <path d="M7 8h10M7 13h10M7 18h6" stroke="#7B5BD8" strokeWidth="1.8" strokeLinecap="round"/>
+              <rect x="2" y="1" width="20" height="24" rx="4" fill="#6D28D9" opacity="0.2"/>
+              <rect x="2" y="1" width="20" height="24" rx="4" stroke="#6D28D9" strokeWidth="1.6"/>
+              <path d="M7 8h10M7 13h10M7 18h6" stroke="#6D28D9" strokeWidth="1.8" strokeLinecap="round"/>
             </svg>
           </div>
           <div>
             <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginBottom:3 }}>Gasto completo</div>
-            <div style={{ fontSize:13, color:'#8E8E93' }}>Todos los detalles</div>
-          </div>
-        </button>
-
-        {/* Por voz */}
-        <button onClick={onVoice}
-          style={{ display:'flex', alignItems:'center', gap:14, width:'100%', background:'#2C2C2E', border:'1px solid #3A3A3C', borderRadius:18, padding:'16px', cursor:'pointer', fontFamily:'inherit', textAlign:'left', boxSizing:'border-box', opacity:0.5 }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:'#30D15822', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <rect x="9" y="2" width="6" height="12" rx="3" fill="#30D158" opacity="0.25" stroke="#30D158" strokeWidth="1.6"/>
-              <path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6" stroke="#30D158" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div>
-            <div style={{ fontSize:16, fontWeight:700, color:'#FFFFFF', marginBottom:3 }}>Por voz</div>
-            <div style={{ fontSize:13, color:'#8E8E93' }}>Próximamente</div>
+            <div style={{ fontSize:13, color:'#8E8E93' }}>Tarjeta, cuotas y todos los detalles</div>
           </div>
         </button>
 
@@ -966,11 +951,11 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           <div style={{ display:'flex', gap:10, marginBottom:20 }}>
             <div style={{ flex:1.5 }}>
               <label style={S.label}>Monto ($)</label>
-              <input style={{ ...S.input, fontSize:24, fontWeight:800 }} type="text" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" inputMode="decimal" />
+              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:56, boxSizing:'border-box' }} type="text" value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="0" inputMode="decimal" />
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
-              <input style={{ ...S.input, fontSize:13 }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
+              <input style={{ ...S.input, fontSize:14, height:56, boxSizing:'border-box' }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
             </div>
           </div>
 
@@ -1650,7 +1635,7 @@ export default function App() {
         {view==='settings'  && <Settings config={config} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} />}
       </div>
       <BottomNav view={view} setView={setView}
-        onFabTap={()=>{ if(view==='add'||view==='edit'){setView('activity');} else { setShowQuickForm(true); } }}
+        onFabTap={()=>{ if(view==='add'||view==='edit'){setView('activity');} else { setShowChoice(true); } }}
         onFabLongPress={()=>{ if(view!=='add'&&view!=='edit') setShowChoice(true); }}
       />
       {showChoice && (
@@ -1658,7 +1643,6 @@ export default function App() {
           onClose={()=>setShowChoice(false)}
           onQuick={()=>{ setShowChoice(false); setTimeout(()=>setShowQuickForm(true), 80); }}
           onFull={()=>{ setShowChoice(false); setTimeout(()=>setView('add'), 80); }}
-          onVoice={()=>{ setShowChoice(false); }}
         />
       )}
       {showQuickForm && (
