@@ -243,7 +243,6 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
   const [amount,   setAmount]   = useState('');
   const [category, setCategory] = useState(lastUsed?.category || 'super');
   const [paidBy,   setPaidBy]   = useState(lastUsed?.paidBy   || 'toba');
-  const [saved,    setSaved]    = useState(false);
   const [error,    setError]    = useState('');
 
   const handleSave = () => {
@@ -256,8 +255,7 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
       installments: null, installmentGroupId: null, recurringId: null,
       date: todayStr(), month: curMonth(),
     });
-    setSaved(true);
-    setTimeout(() => { setSaved(false); setAmount(''); }, 1500);
+    onClose();
   };
 
   const cat = CATS.find(c => c.id === category);
@@ -315,8 +313,8 @@ function QuickAddSheet({ onSave, onClose, lastUsed }) {
 
         {error && <div style={{ color:C.danger, fontSize:13, fontWeight:600, marginBottom:12 }}>{error}</div>}
 
-        <button style={S.btn(saved ? C.success : C.primary)} onClick={handleSave}>
-          {saved ? '✓ Guardado' : 'Agregar gasto'}
+        <button style={S.btn(C.primary)} onClick={handleSave}>
+          Agregar gasto
         </button>
       </div>
     </div>
@@ -498,6 +496,7 @@ function BarChart({ expenses, month }) {
 
 function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses }) {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const mExps = expenses.filter(e => e.month === month);
   const totalShared = mExps.filter(e => e.split !== 'personal').reduce((s,e) => s+e.amount, 0);
@@ -775,7 +774,6 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
     isRecurring:     false,
     date:            initialValues?.date                    || todayStr(),
   }));
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
@@ -822,7 +820,6 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
     }
 
     onSave(base);
-    if (!isEdit) { setSaved(true); setTimeout(()=>setSaved(false),2000); setForm(f=>({...f,description:'',amount:''})); }
   };
 
   const remaining = form.hasInstallments ? Math.max(0,+form.installTotal-+form.installCurrent+1) : 0;
@@ -987,8 +984,8 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
 
       {error && <div style={{ background:'#FFF1F0', border:`1px solid ${C.danger}30`, color:C.danger, borderRadius:R.sm, padding:'12px 14px', marginBottom:16, fontSize:13, fontWeight:600 }}>{error}</div>}
 
-      <button style={S.btn(isEdit?C.selected:saved?C.success:C.primary)} onClick={handleSubmit}>
-        {isEdit?'Guardar cambios':saved?'✓ Gasto guardado':'Agregar gasto'}
+      <button style={S.btn(isEdit?C.selected:C.primary)} onClick={handleSubmit}>
+        {isEdit?'Guardar cambios':'Agregar gasto'}
       </button>
     </div>
   );
