@@ -492,8 +492,89 @@ function BarChart({ expenses, month }) {
   );
 }
 
-function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses }) {
+// ─── SWIPEABLE ROW ────────────────────────────────────────────────────────────
+function SwipeableRow({ exp, idx, isLast, onEdit, onDeleteRequest }) {
+  const DELETE_W = 72;
+  const [offsetX, setOffsetX]   = useState(0);
+  const [open,    setOpen]      = useState(false);
+  const startXRef               = useRef(null);
+  const isDragging              = useRef(false);
+
+  const onTouchStart = e => {
+    startXRef.current = e.touches[0].clientX;
+    isDragging.current = false;
+  };
+  const onTouchMove = e => {
+    if (startXRef.current === null) return;
+    const dx = e.touches[0].clientX - startXRef.current;
+    if (Math.abs(dx) > 6) isDragging.current = true;
+    if (dx < 0) setOffsetX(Math.max(dx + (open ? -DELETE_W : 0), -DELETE_W));
+    else if (open) setOffsetX(Math.min(dx - DELETE_W, 0));
+  };
+  const onTouchEnd = () => {
+    if (offsetX < -DELETE_W / 2) { setOffsetX(-DELETE_W); setOpen(true); }
+    else { setOffsetX(0); setOpen(false); }
+    startXRef.current = null;
+  };
+  const handleRowClick = () => {
+    if (isDragging.current) return;
+    if (open) { setOffsetX(0); setOpen(false); return; }
+    onEdit(exp);
+  };
+
+  const cat = CATS.find(c => c.id === exp.category);
+  return (
+    <div style={{ position:'relative', overflow:'hidden',
+      borderBottom: isLast ? 'none' : `1px solid ${C.border}` }}>
+      {/* Acción de borrar (detrás) */}
+      <div style={{ position:'absolute', right:0, top:0, bottom:0, width:DELETE_W,
+        background:C.danger, display:'flex', alignItems:'center', justifyContent:'center',
+        cursor:'pointer' }}
+        onClick={() => onDeleteRequest(exp)}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      {/* Row principal */}
+      <div
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onClick={handleRowClick}
+        style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px',
+          background:C.card, transform:`translateX(${offsetX}px)`,
+          transition: startXRef.current !== null ? 'none' : 'transform 0.25s ease',
+          cursor:'pointer', userSelect:'none' }}>
+        <div style={{ width:38, height:38, borderRadius:10, background:C.card2,
+          flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
+          {cat?.icon || '📦'}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:600, color:C.text,
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {exp.description || cat?.label}
+          </div>
+          <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
+            {exp.paidBy === 'toba' ? '● Toba' : '● Gri'}
+            {exp.split === 'compartido' ? ' · Compartido' : exp.split === 'personal' ? ' · Personal' : ' · Préstamo'}
+            {exp.installments ? ` · ${exp.installments.current}/${exp.installments.total}` : ''}
+          </div>
+        </div>
+        <div style={{ fontSize:15, fontWeight:700, color:C.text, flexShrink:0 }}>
+          {fmt(exp.amount)}
+        </div>
+        {/* Indicador de editable */}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0, opacity:0.3 }}>
+          <path d="M9 18l6-6-6-6" stroke={C.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses, onEdit, onDelete }) {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [deleteConfirm,   setDeleteConfirm]   = useState(null); // gasto a confirmar
 
   const mExps = expenses.filter(e => e.month === month);
   const totalShared = mExps.filter(e => e.split !== 'personal').reduce((s,e) => s+e.amount, 0);
@@ -527,9 +608,9 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
   );
 
   return (
-    <div style={{ background: C.bg, minHeight: '100vh', paddingBottom: 100 }}>
-      {/* Header sticky */}
-      <div style={{ position:'sticky', top:0, zIndex:10, background: C.bg, paddingTop: 'env(safe-area-inset-top, 16px)' }}>
+    <div style={{ background: C.bg, height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header fijo arriba */}
+      <div style={{ flexShrink: 0, background: C.bg, paddingTop: 'env(safe-area-inset-top, 16px)' }}>
         <div style={{ padding:'16px 20px 0' }}>
           {/* Month selector */}
           <button onClick={()=>setShowMonthPicker(true)}
@@ -552,8 +633,8 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
         </div>
       </div>
 
-      {/* Transaction list */}
-      <div style={{ padding:'8px 16px 0' }}>
+      {/* Transaction list — scroll independiente */}
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding:'8px 16px 0', paddingBottom: 'calc(110px + env(safe-area-inset-bottom, 0px))' }}>
         {dates.length === 0 ? (
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingTop:60, gap:16 }}>
             <EmptySVG />
@@ -570,31 +651,12 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
                   <span style={{ fontSize:13, fontWeight:600, color:'#8E8E93' }}>{fmt(dayTotal)}</span>
                 </div>
                 <div style={{ background: C.card, borderRadius:16, overflow:'hidden', border:`1px solid ${C.border}` }}>
-                  {byDate[date].map((exp, idx) => {
-                    const cat = CATS.find(c => c.id === exp.category);
-                    return (
-                      <div key={exp.id}
-                        style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px',
-                          borderBottom: idx < byDate[date].length-1 ? `1px solid ${C.border}` : 'none' }}>
-                        <div style={{ width:38, height:38, borderRadius:10, background:C.card2, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
-                          {cat?.icon || '📦'}
-                        </div>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:15, fontWeight:600, color:C.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                            {exp.description || cat?.label}
-                          </div>
-                          <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
-                            {exp.paidBy === 'toba' ? '● Toba' : '● Gri'}
-                            {exp.split === 'compartido' ? ' · Compartido' : exp.split === 'personal' ? ' · Personal' : ' · Préstamo'}
-                            {exp.installments ? ` · ${exp.installments.current}/${exp.installments.total}` : ''}
-                          </div>
-                        </div>
-                        <div style={{ fontSize:15, fontWeight:700, color:C.text, flexShrink:0 }}>
-                          {fmt(exp.amount)}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {byDate[date].map((exp, idx) => (
+                    <SwipeableRow key={exp.id} exp={exp} idx={idx}
+                      isLast={idx === byDate[date].length - 1}
+                      onEdit={onEdit}
+                      onDeleteRequest={e => setDeleteConfirm(e)} />
+                  ))}
                 </div>
               </div>
             );
@@ -604,6 +666,37 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
 
       {showMonthPicker && (
         <MonthPickerSheet month={month} onChange={setMonth} onClose={()=>setShowMonthPicker(false)} />
+      )}
+
+      {/* Modal confirmación de borrado */}
+      {deleteConfirm && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:300,
+          display:'flex', alignItems:'flex-end' }} onClick={()=>setDeleteConfirm(null)}>
+          <div style={{ background:C.card, borderRadius:'24px 24px 0 0', padding:'28px 20px 36px',
+            width:'100%', boxSizing:'border-box' }} onClick={e=>e.stopPropagation()}>
+            <div style={{ width:40, height:4, background:C.border, borderRadius:R.pill, margin:'0 auto 20px' }}/>
+            <div style={{ fontSize:18, fontWeight:800, color:C.text, marginBottom:8 }}>¿Eliminar gasto?</div>
+            <div style={{ fontSize:14, color:C.muted, marginBottom:28 }}>
+              {deleteConfirm.description || CATS.find(c=>c.id===deleteConfirm.category)?.label} · {fmt(deleteConfirm.amount)}
+            </div>
+            {deleteConfirm.installmentGroupId ? (
+              <>
+                <button style={S.btn(C.danger)} onClick={()=>{onDelete([deleteConfirm.id]);setDeleteConfirm(null);}}>
+                  Eliminar solo esta cuota
+                </button>
+                <button style={{ ...S.btn(C.card2), marginTop:10 }} onClick={()=>{
+                  const ids = expenses.filter(e=>e.installmentGroupId===deleteConfirm.installmentGroupId&&e.month>=deleteConfirm.month).map(e=>e.id);
+                  onDelete(ids); setDeleteConfirm(null);
+                }}>Eliminar cuotas restantes</button>
+              </>
+            ) : (
+              <button style={S.btn(C.danger)} onClick={()=>{onDelete([deleteConfirm.id]);setDeleteConfirm(null);}}>
+                Eliminar gasto
+              </button>
+            )}
+            <button style={{ ...S.btn(C.card2), marginTop:10 }} onClick={()=>setDeleteConfirm(null)}>Cancelar</button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -877,11 +970,11 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
           <div style={{ display:'flex', gap:10, marginBottom:20 }}>
             <div style={{ flex:1.5 }}>
               <label style={S.label}>Monto ($)</label>
-              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:58 }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
+              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:56, boxSizing:'border-box' }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
-              <input style={{ ...S.input, fontSize:13, height:58 }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
+              <input style={{ ...S.input, fontSize:14, height:56, boxSizing:'border-box' }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
             </div>
           </div>
 
@@ -1543,8 +1636,8 @@ function MainApp({ me, email }) {
         ::-webkit-scrollbar{display:none;}
         button:active{opacity:0.8;}
       `}</style>
-      <div style={S.screen}>
-        {view==='activity'  && <ActivityScreen expenses={expenses} config={config} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} />}
+      <div style={view==='activity' ? { ...S.screen, paddingBottom:0, height:'100dvh', overflow:'hidden' } : S.screen}>
+        {view==='activity'  && <ActivityScreen expenses={expenses} config={config} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} onEdit={exp=>{setEditingExpense(exp);setView('edit');}} onDelete={handleDelete} />}
         {view==='resumen'   && <ResumedScreen expenses={expenses} config={config} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} />}
         {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} />}
         {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit />}
