@@ -40,18 +40,19 @@ const stateToRows = d => {
   (d.expenses || []).forEach(e => rows.set(rowId('expense', e.id), { kind: 'expense', data: e }));
   (d.settlements || []).forEach(s => rows.set(rowId('settlement', s.id), { kind: 'settlement', data: s }));
   (d.recurringExpenses || []).forEach(r => rows.set(rowId('recurring', r.id), { kind: 'recurring', data: r }));
-  rows.set('meta:config', { kind: 'meta', data: d.config || { salaryToba: 0, salaryGri: 0 } });
+  rows.set('meta:monthlyConfigs', { kind: 'meta', data: d.monthlyConfigs || {} });
   rows.set('meta:projectedMonths', { kind: 'meta', data: { list: d.projectedMonths || [] } });
   return rows;
 };
 
 const rowsToState = rows => {
-  const st = { expenses: [], settlements: [], recurringExpenses: [], projectedMonths: [], config: { salaryToba: 0, salaryGri: 0 } };
+  const st = { expenses: [], settlements: [], recurringExpenses: [], projectedMonths: [], monthlyConfigs: {}, _legacyConfig: null };
   rows.forEach(r => {
     if (r.kind === 'expense')    st.expenses.push(r.data);
     if (r.kind === 'settlement') st.settlements.push(r.data);
     if (r.kind === 'recurring')  st.recurringExpenses.push(r.data);
-    if (r.id === 'meta:config')  st.config = r.data;
+    if (r.id === 'meta:monthlyConfigs') st.monthlyConfigs = r.data || {};
+    if (r.id === 'meta:config')  st._legacyConfig = r.data;   // solo para migración
     if (r.id === 'meta:projectedMonths') st.projectedMonths = r.data?.list || [];
   });
   return st;

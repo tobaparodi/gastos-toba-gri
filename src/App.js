@@ -49,6 +49,12 @@ const advanceMonth = (m, n) => {
   return y + '-' + String(mo).padStart(2, '0');
 };
 const calcPcts = (t, g) => { const s = t + g; return s ? { t: t/s, g: g/s } : { t: 0.5, g: 0.5 }; };
+const getConfigForMonth = (monthlyConfigs, month) => {
+  if (monthlyConfigs[month]) return monthlyConfigs[month];
+  // Fallback al mes configurado más reciente anterior
+  const prior = Object.keys(monthlyConfigs).filter(m => m < month).sort().reverse()[0];
+  return prior ? monthlyConfigs[prior] : { salaryToba: 0, salaryGri: 0 };
+};
 const parseAmount = str => {
   if (!str) return NaN;
   return parseFloat(String(str).trim().replace(/\./g, '').replace(',', '.'));
@@ -704,7 +710,7 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
 
 // ─── RESUMEN SCREEN ───────────────────────────────────────────────────────────
 
-function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses }) {
+function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses, hasMonthConfig, onGoToSettings }) {
   const [showSettlement, setShowSettlement] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const p = calcPcts(config.salaryToba, config.salaryGri);
@@ -739,6 +745,18 @@ function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSe
             <path d="M2 4l4 4 4-4" stroke="#8E8E93" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
+
+        {/* Aviso sueldos no configurados */}
+        {!hasMonthConfig && (
+          <button onClick={onGoToSettings} style={{ display:'flex', alignItems:'center', gap:10, width:'100%', background:C.warn+'14', border:`1px solid ${C.warn}44`, borderRadius:R.sm, padding:'10px 14px', marginBottom:14, cursor:'pointer', fontFamily:'inherit', textAlign:'left' }}>
+            <span style={{ fontSize:16 }}>⚠️</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:13, fontWeight:600, color:C.warn }}>Sueldos de {monthLabel(month)} sin configurar</div>
+              <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>El cálculo usa el mes anterior · Tocá para configurar</div>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke={C.warn} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        )}
 
         {/* Balance neto */}
         {debtor ? (
@@ -1345,14 +1363,24 @@ function CardsView({ expenses, month, setMonth, config }) {
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
 
-function Settings({ config, onSave, expenses, settlements, recurringExpenses, onDeleteRecurring, onImport, email, me, onSignOut }) {
-  const [st, setSt] = useState(String(config.salaryToba||''));
-  const [sg, setSg] = useState(String(config.salaryGri||''));
+function Settings({ monthlyConfigs, month, onSave, expenses, settlements, recurringExpenses, onDeleteRecurring, onImport, email, me, onSignOut }) {
+  const cfg = getConfigForMonth(monthlyConfigs, month);
+  const hasOwnConfig = !!monthlyConfigs[month];
+  const [st, setSt] = useState(String(cfg.salaryToba||''));
+  const [sg, setSg] = useState(String(cfg.salaryGri||''));
   const [saved, setSaved] = useState(false);
   const fileRef = useRef();
 
-  const handleSave = () => { onSave({salaryToba:parseFloat(st)||0,salaryGri:parseFloat(sg)||0}); setSaved(true); setTimeout(()=>setSaved(false),2000); };
-  const handleExport = () => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({expenses,settlements,recurringExpenses,config},null,2)],{type:'application/json'})); a.download=`gastos-${curMonth()}.json`; a.click(); };
+  // Actualizar campos cuando cambia el mes activo
+  useEffect(() => {
+    const c = getConfigForMonth(monthlyConfigs, month);
+    setSt(String(c.salaryToba||''));
+    setSg(String(c.salaryGri||''));
+    setSaved(false);
+  }, [month]);
+
+  const handleSave = () => { onSave(month, {salaryToba:parseFloat(st)||0,salaryGri:parseFloat(sg)||0}); setSaved(true); setTimeout(()=>setSaved(false),2000); };
+  const handleExport = () => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify({expenses,settlements,recurringExpenses,monthlyConfigs},null,2)],{type:'application/json'})); a.download=`gastos-${curMonth()}.json`; a.click(); };
   const handleImport = e => { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{try{onImport(JSON.parse(ev.target.result));}catch{alert('Archivo inválido');}}; r.readAsText(f); e.target.value=''; };
 
   const t=parseFloat(st)||0, g=parseFloat(sg)||0, p=calcPcts(t,g);
@@ -1377,8 +1405,16 @@ function Settings({ config, onSave, expenses, settlements, recurringExpenses, on
 
       {/* Sueldos */}
       <div style={{ ...S.card, marginBottom:14 }}>
-        <div style={{ ...S.h2, marginBottom:18 }}>Sueldos del mes</div>
-        <div style={{ marginBottom:14 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+          <div style={S.h2}>Sueldos</div>
+          <div style={{ fontSize:12, fontWeight:600, color:C.primary, background:C.primary+'18', padding:'3px 10px', borderRadius:R.pill }}>{monthLabel(month)}</div>
+        </div>
+        {!hasOwnConfig && (
+          <div style={{ fontSize:12, color:C.warn, background:C.warn+'18', borderRadius:R.sm, padding:'8px 12px', marginBottom:16 }}>
+            Usando sueldos de un mes anterior. Guardá para fijar los de {monthLabel(month)}.
+          </div>
+        )}
+        <div style={{ marginBottom:14, marginTop: hasOwnConfig ? 18 : 0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}><div style={{ width:8, height:8, borderRadius:'50%', background:C.toba }} /><label style={{ ...S.label, margin:0 }}>Sueldo Toba (en $ARS)</label></div>
           <input style={S.input} type="number" value={st} onChange={e=>setSt(e.target.value)} placeholder="0" inputMode="numeric" />
         </div>
@@ -1508,7 +1544,7 @@ function MainApp({ me, email }) {
   const [settlements,       setSettlements]      = useState([]);
   const [recurringExpenses, setRecurringExpenses]= useState([]);
   const [projectedMonths,   setProjectedMonths]  = useState([]);
-  const [config,            setConfig]           = useState({salaryToba:0,salaryGri:0});
+  const [monthlyConfigs,    setMonthlyConfigs]    = useState({});
   const [month,             setMonth]            = useState(curMonth());
   const [loading,           setLoading]          = useState(true);
   const [editingExpense,    setEditingExpense]    = useState(null);
@@ -1522,7 +1558,12 @@ function MainApp({ me, email }) {
     setSettlements(data.settlements    || []);
     setRecurringExpenses(data.recurringExpenses || []);
     setProjectedMonths(data.projectedMonths || []);
-    setConfig(data.config              || {salaryToba:0,salaryGri:0});
+    // Migración: si viene config viejo sin monthlyConfigs, convertirlo al mes actual
+    let mc = data.monthlyConfigs || {};
+    if (Object.keys(mc).length === 0 && data._legacyConfig && (data._legacyConfig.salaryToba || data._legacyConfig.salaryGri)) {
+      mc = { [curMonth()]: data._legacyConfig };
+    }
+    setMonthlyConfigs(mc);
   };
 
   useEffect(() => {
@@ -1543,7 +1584,7 @@ function MainApp({ me, email }) {
     if (recurringExpenses.length === 0) {
       const pm = [...projectedMonths, month];
       setProjectedMonths(pm);
-      saveData({ expenses, settlements, recurringExpenses, projectedMonths: pm, config });
+      saveData({ expenses, settlements, recurringExpenses, projectedMonths: pm, monthlyConfigs });
       return;
     }
     const newExps = projectRecurring(recurringExpenses, expenses, month);
@@ -1551,18 +1592,18 @@ function MainApp({ me, email }) {
     const pm = [...projectedMonths, month];
     setExpenses(updatedExps);
     setProjectedMonths(pm);
-    saveData({ expenses: updatedExps, settlements, recurringExpenses, projectedMonths: pm, config });
+    saveData({ expenses: updatedExps, settlements, recurringExpenses, projectedMonths: pm, monthlyConfigs });
   }, [month, loading, recurringExpenses.length]);
 
-  const persist = (exps, cfg, setts, recur, pm) =>
-    saveData({ expenses:exps, settlements:setts, recurringExpenses:recur, projectedMonths:pm, config:cfg });
+  const persist = (exps, mc, setts, recur, pm) =>
+    saveData({ expenses:exps, settlements:setts, recurringExpenses:recur, projectedMonths:pm, monthlyConfigs:mc });
 
   const handleAdd = base => {
     const newExps = base.installments ? buildInstallments(base) : [base];
     const updated = [...expenses, ...newExps];
     setExpenses(updated);
     setLastUsed(base);
-    persist(updated, config, settlements, recurringExpenses, projectedMonths);
+    persist(updated, monthlyConfigs, settlements, recurringExpenses, projectedMonths);
     setView('activity');
   };
 
@@ -1570,43 +1611,45 @@ function MainApp({ me, email }) {
     const updated = [...expenses, base];
     setExpenses(updated);
     setLastUsed(base);
-    persist(updated, config, settlements, recurringExpenses, projectedMonths);
-    setTimeout(() => setShowQuickForm(false), 700);   // deja ver el ✓ Guardado
+    persist(updated, monthlyConfigs, settlements, recurringExpenses, projectedMonths);
+    setTimeout(() => setShowQuickForm(false), 700);
   };
 
   const handleEdit = upd => {
     const e = expenses.map(x=>x.id===upd.id?upd:x);
-    setExpenses(e); persist(e, config, settlements, recurringExpenses, projectedMonths);
+    setExpenses(e); persist(e, monthlyConfigs, settlements, recurringExpenses, projectedMonths);
     setEditingExpense(null); setView('activity');
   };
 
   const handleDelete = ids => {
     const u = expenses.filter(e=>!ids.includes(e.id));
-    setExpenses(u); persist(u, config, settlements, recurringExpenses, projectedMonths);
+    setExpenses(u); persist(u, monthlyConfigs, settlements, recurringExpenses, projectedMonths);
   };
 
-  const handleConfig = cfg => {
-    setConfig(cfg); persist(expenses, cfg, settlements, recurringExpenses, projectedMonths);
+  const handleConfig = (m, cfg) => {
+    const updated = { ...monthlyConfigs, [m]: cfg };
+    setMonthlyConfigs(updated);
+    persist(expenses, updated, settlements, recurringExpenses, projectedMonths);
   };
 
   const handleAddSettlement = s => {
     const u = [...settlements, s];
-    setSettlements(u); persist(expenses, config, u, recurringExpenses, projectedMonths);
+    setSettlements(u); persist(expenses, monthlyConfigs, u, recurringExpenses, projectedMonths);
   };
 
   const handleDeleteSettlement = id => {
     const u = settlements.filter(s=>s.id!==id);
-    setSettlements(u); persist(expenses, config, u, recurringExpenses, projectedMonths);
+    setSettlements(u); persist(expenses, monthlyConfigs, u, recurringExpenses, projectedMonths);
   };
 
   const handleAddRecurring = r => {
     const u = [...recurringExpenses, r];
-    setRecurringExpenses(u); persist(expenses, config, settlements, u, projectedMonths);
+    setRecurringExpenses(u); persist(expenses, monthlyConfigs, settlements, u, projectedMonths);
   };
 
   const handleDeleteRecurring = id => {
     const u = recurringExpenses.filter(r=>r.id!==id);
-    setRecurringExpenses(u); persist(expenses, config, settlements, u, projectedMonths);
+    setRecurringExpenses(u); persist(expenses, monthlyConfigs, settlements, u, projectedMonths);
   };
 
   const handleImport = data => {
@@ -1617,9 +1660,9 @@ function MainApp({ me, email }) {
     const ns = (data.settlements||[]).filter(s=>!sIds.has(s.id));
     const nr = (data.recurringExpenses||[]).filter(r=>!rIds.has(r.id));
     const me=[...expenses,...ne], ms=[...settlements,...ns], mr=[...recurringExpenses,...nr];
-    const cfg=data.config||config;
-    setExpenses(me);setSettlements(ms);setRecurringExpenses(mr);setConfig(cfg);
-    persist(me,cfg,ms,mr,projectedMonths);
+    const mc = data.monthlyConfigs || monthlyConfigs;
+    setExpenses(me); setSettlements(ms); setRecurringExpenses(mr); setMonthlyConfigs(mc);
+    persist(me, mc, ms, mr, projectedMonths);
     alert(`✓ ${ne.length} gastos, ${ns.length} pagos y ${nr.length} fijos importados.`);
   };
 
@@ -1648,12 +1691,14 @@ function MainApp({ me, email }) {
         button:active{opacity:0.8;}
       `}</style>
       <div style={view==='activity' ? { ...S.screen, paddingBottom:0, height:'100dvh', overflow:'hidden' } : S.screen}>
-        {view==='activity'  && <ActivityScreen expenses={expenses} config={config} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} onEdit={exp=>{setEditingExpense(exp);setView('edit');}} onDelete={handleDelete} />}
-        {view==='resumen'   && <ResumedScreen expenses={expenses} config={config} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} />}
-        {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} />}
-        {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit />}
-        {view==='cards'     && <CardsView expenses={expenses} month={month} setMonth={setMonth} config={config} />}
-        {view==='settings'  && <Settings config={config} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} email={email} me={me} onSignOut={signOut} />}
+        {(() => { const monthConfig = getConfigForMonth(monthlyConfigs, month); return (<>
+          {view==='activity'  && <ActivityScreen expenses={expenses} config={monthConfig} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} onEdit={exp=>{setEditingExpense(exp);setView('edit');}} onDelete={handleDelete} />}
+          {view==='resumen'   && <ResumedScreen expenses={expenses} config={monthConfig} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} hasMonthConfig={!!monthlyConfigs[month]} onGoToSettings={()=>setView('settings')} />}
+          {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} />}
+          {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit />}
+          {view==='cards'     && <CardsView expenses={expenses} month={month} setMonth={setMonth} config={monthConfig} />}
+          {view==='settings'  && <Settings monthlyConfigs={monthlyConfigs} month={month} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} email={email} me={me} onSignOut={signOut} />}
+        </>); })()}
       </div>
       {syncError && (
         <div role="alert" style={{ position:'fixed', left:16, right:16, bottom:'calc(96px + env(safe-area-inset-bottom, 0px))', zIndex:500, background:'#3A1D1B', border:`1px solid ${C.danger}55`, color:'#FFB4AE', borderRadius:R.sm, padding:'12px 14px', fontSize:13, fontWeight:600, fontFamily:"'Plus Jakarta Sans', system-ui, sans-serif" }}>
