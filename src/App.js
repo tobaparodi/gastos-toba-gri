@@ -34,7 +34,7 @@ const MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
-const fmt        = n => '$' + Math.abs(Math.round(n)).toLocaleString('es-AR');
+const fmt        = n => { const abs = Math.abs(Math.round(n)); return (n < 0 ? '−' : '') + '$' + abs.toLocaleString('es-AR'); };
 const fmtPct     = n => (n * 100).toFixed(1) + '%';
 const uid        = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const todayStr   = () => new Date().toISOString().slice(0, 10);
@@ -870,7 +870,8 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false, me
   const [quickMode, setQuickMode] = useState(false);
   const [form, setForm] = useState(() => ({
     description:     initialValues?.description             || '',
-    amount:          amountFromNumber(initialValues?.amount),
+    amount:          amountFromNumber(Math.abs(initialValues?.amount || 0)) || '',
+    isRefund:        (initialValues?.amount || 0) < 0,
     category:        initialValues?.category                || 'super',
     paidBy:          initialValues?.paidBy                  || 'toba',
     paymentType:     initialValues?.paymentType             || 'efectivo',
@@ -901,8 +902,9 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false, me
   };
 
   const handleSubmit = () => {
-    const amount = parseAmount(form.amount);
-    if (isNaN(amount) || amount <= 0) { setError('Ingresá un monto válido'); return; }
+    const rawAmount = parseAmount(form.amount);
+    if (isNaN(rawAmount) || rawAmount <= 0) { setError('Ingresá un monto válido'); return; }
+    const amount = form.isRefund ? -rawAmount : rawAmount;
     setError('');
     const base = {
       id:                 initialValues?.id || uid(),
@@ -996,12 +998,28 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false, me
           <div style={{ display:'flex', gap:10, marginBottom:20 }}>
             <div style={{ flex:1.5 }}>
               <label style={S.label}>Monto ($)</label>
-              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:56, lineHeight:'normal', padding:'0 16px', boxSizing:'border-box' }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
+              <input style={{ ...S.input, fontSize:24, fontWeight:800, height:56, lineHeight:'normal', padding:'0 16px', boxSizing:'border-box', color: form.isRefund ? C.success : C.text }} type="text" value={form.amount} onChange={e=>set('amount',formatAmountInput(e.target.value))} placeholder="0" inputMode="decimal" />
             </div>
             <div style={{ flex:1 }}>
               <label style={S.label}>Fecha</label>
               <input className="date-input" style={{ ...S.input, fontSize:16, height:56, minHeight:56, maxHeight:56, lineHeight:'normal', padding:'0 12px', boxSizing:'border-box', display:'flex', alignItems:'center' }} type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
             </div>
+          </div>
+
+          <div style={{ marginBottom:20 }}>
+            <button onClick={()=>set('isRefund',!form.isRefund)}
+              style={{ width:'100%', padding:'12px 16px', borderRadius:R.sm, border:`2px solid ${form.isRefund ? C.success : C.border}`, background: form.isRefund ? C.success+'15' : C.card, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:18 }}>↩</span>
+                <div style={{ textAlign:'left' }}>
+                  <div style={{ fontSize:13, fontWeight:700, color: form.isRefund ? C.success : C.text }}>Devolución</div>
+                  <div style={{ fontSize:11, color:C.muted, marginTop:1 }}>{form.isRefund ? 'El monto se restará del balance' : 'Activar si es un reintegro o devolución'}</div>
+                </div>
+              </div>
+              <div style={{ width:22, height:22, borderRadius:R.pill, border:`2px solid ${form.isRefund ? C.success : C.border}`, background: form.isRefund ? C.success : 'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                {form.isRefund && <span style={{ color:'#fff', fontSize:13, fontWeight:800 }}>✓</span>}
+              </div>
+            </button>
           </div>
 
           <div style={{ marginBottom:20 }}>
@@ -1316,18 +1334,20 @@ function CardsView({ expenses, month, setMonth, config, onEdit }) {
                       return (
                         <div key={exp.id} onClick={()=>onEdit&&onEdit(exp)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderTop:i===0?'none':`1px solid ${C.border}`, cursor: onEdit ? 'pointer' : 'default' }}>
                           <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:14, color:C.text, fontWeight:isShared?600:400, display:'flex', alignItems:'center', gap:8 }}>
-                              <span>{cat.icon}</span>
+                            <div style={{ fontSize:14, color: exp.amount<0 ? C.success : C.text, fontWeight:isShared?600:400, display:'flex', alignItems:'center', gap:8 }}>
+                              <span>{exp.amount<0 ? '↩' : cat.icon}</span>
                               <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{exp.description||<em style={{ color:C.muted }}>Sin descripción</em>}</span>
                             </div>
                             <div style={{ display:'flex', gap:10, marginTop:4 }}>
                               <span style={{ fontSize:12, color:C.muted }}>{shortDate(exp.date)}</span>
-                              {!isShared&&<span style={{ fontSize:12, color:C.muted }}>Personal</span>}
+                              {exp.amount<0 && <span style={{ fontSize:12, color:C.success, fontWeight:600 }}>Devolución</span>}
+                              {!isShared&&exp.amount>=0&&<span style={{ fontSize:12, color:C.muted }}>Personal</span>}
                             </div>
                           </div>
                           <div style={{ textAlign:'right', flexShrink:0, marginLeft:14 }}>
-                            <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmt(exp.amount)}</div>
-                            {isShared&&<div style={{ fontSize:11, color:card.accent, marginTop:2 }}>{otherName}: {fmt(exp.amount*(card.owner==='toba'?p.g:p.t))}</div>}
+                            <div style={{ fontSize:15, fontWeight:700, color: exp.amount<0 ? C.success : C.text }}>{fmt(exp.amount)}</div>
+                            {isShared&&exp.amount>=0&&<div style={{ fontSize:11, color:card.accent, marginTop:2 }}>{otherName}: {fmt(exp.amount*(card.owner==='toba'?p.g:p.t))}</div>}
+                            {isShared&&exp.amount<0&&<div style={{ fontSize:11, color:C.success, marginTop:2 }}>↩ {otherName}: {fmt(exp.amount*(card.owner==='toba'?p.g:p.t))}</div>}
                           </div>
                         </div>
                       );
