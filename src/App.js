@@ -76,9 +76,23 @@ const calcBalance = (exps, cfg) => {
   let gOwesT = 0, tOwesG = 0;
   exps.forEach(e => {
     if (e.split === 'compartido') { e.paidBy === 'toba' ? (gOwesT += e.amount * p.g) : (tOwesG += e.amount * p.t); }
+    // 'toba' = Toba es responsable del 100%: si Gri pagó, Toba le debe; si Toba pagó, nada
+    else if (e.split === 'toba') { if (e.paidBy === 'gri') tOwesG += e.amount; }
+    // 'gri'  = Gri es responsable del 100%: si Toba pagó, Gri le debe; si Gri pagó, nada
+    else if (e.split === 'gri')  { if (e.paidBy === 'toba') gOwesT += e.amount; }
+    // legacy
     else if (e.split === 'prestamo') { e.paidBy === 'toba' ? (gOwesT += e.amount) : (tOwesG += e.amount); }
   });
   return { griOwesToba: gOwesT, tobaOwesGri: tOwesG, grossNet: gOwesT - tOwesG };
+};
+
+// true si el gasto genera deuda cruzada (afecta el balance entre Toba y Gri)
+const hasBalanceEffect = e => {
+  if (e.split === 'compartido') return true;
+  if (e.split === 'toba') return e.paidBy === 'gri';   // Gri pagó por Toba → Toba debe devolver
+  if (e.split === 'gri')  return e.paidBy === 'toba';  // Toba pagó por Gri → Gri debe devolver
+  if (e.split === 'prestamo') return true;              // legacy
+  return false; // 'personal'
 };
 
 const calcNetBalance = (exps, cfg, settlements = []) => {
@@ -459,7 +473,7 @@ function BarChart({ expenses, month }) {
   const [y, m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const byDay = {};
-  expenses.filter(e => e.month === month && e.split !== 'personal').forEach(e => {
+  expenses.filter(e => e.month === month && hasBalanceEffect(e)).forEach(e => {
     const d = parseInt(e.date.slice(8));
     byDay[d] = (byDay[d] || 0) + e.amount;
   });
@@ -562,7 +576,7 @@ function SwipeableRow({ exp, idx, isLast, onEdit, onDeleteRequest }) {
           </div>
           <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
             {exp.paidBy === 'toba' ? '● Toba' : '● Gri'}
-            {exp.split === 'compartido' ? ' · Compartido' : exp.split === 'personal' ? ' · Personal' : ' · Préstamo'}
+            {exp.split === 'compartido' ? ' · Compartido' : exp.split === 'toba' ? ' · Solo Toba' : exp.split === 'gri' ? ' · Solo Gri' : exp.split === 'personal' ? ' · Personal' : ' · Préstamo'}
             {exp.installments ? ` · ${exp.installments.current}/${exp.installments.total}` : ''}
           </div>
         </div>
@@ -583,7 +597,7 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
   const [deleteConfirm,   setDeleteConfirm]   = useState(null); // gasto a confirmar
 
   const mExps = expenses.filter(e => e.month === month);
-  const totalShared = mExps.filter(e => e.split !== 'personal').reduce((s,e) => s+e.amount, 0);
+  const totalShared = mExps.filter(e => hasBalanceEffect(e)).reduce((s,e) => s+e.amount, 0);
 
   // Agrupar por fecha
   const byDate = {};
@@ -721,7 +735,7 @@ function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSe
 
   const tobaTotal = mExps.filter(e => e.paidBy==='toba').reduce((s,e)=>s+e.amount,0);
   const griTotal  = mExps.filter(e => e.paidBy==='gri' ).reduce((s,e)=>s+e.amount,0);
-  const totalMes  = mExps.filter(e => e.split !== 'personal').reduce((s,e)=>s+e.amount,0);
+  const totalMes  = mExps.filter(e => hasBalanceEffect(e)).reduce((s,e)=>s+e.amount,0);
 
   const byCat = {};
   mExps.filter(e=>e.split==='compartido').forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+e.amount; });
@@ -1060,12 +1074,16 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false, me
 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>División</label>
-            <Toggle options={[{value:'compartido',label:'🤝 Compartido'},{value:'personal',label:`👤 Solo ${me==='toba'?'Toba':'Gri'}`},{value:'prestamo',label:`💸 Solo ${me==='toba'?'Gri':'Toba'}`}]}
+            <Toggle options={[{value:'compartido',label:'🤝 Compartido'},{value:'toba',label:'👤 Solo Toba'},{value:'gri',label:'👤 Solo Gri'}]}
               value={form.split} onChange={v=>set('split',v)} />
             <div style={{ fontSize:12, color:C.muted, marginTop:8 }}>
               {form.split==='compartido'&&'→ Se divide según el proporcional del mes'}
-              {form.split==='personal'&&`→ Gasto personal de ${me==='toba'?'Toba':'Gri'}, no afecta el balance`}
-              {form.split==='prestamo'&&`→ El 100% lo debe ${me==='toba'?'Gri':'Toba'}`}
+              {form.split==='toba'&&(form.paidBy==='toba'
+                ? '→ Gasto propio de Toba, no afecta el balance'
+                : '→ Gri pagó por Toba · Toba debe devolver el 100%')}
+              {form.split==='gri'&&(form.paidBy==='gri'
+                ? '→ Gasto propio de Gri, no afecta el balance'
+                : '→ Toba pagó por Gri · Gri debe devolver el 100%')}
             </div>
           </div>
 
@@ -1143,8 +1161,8 @@ function ExpenseList({ expenses, month, setMonth, config, onEdit, onDelete }) {
     .sort((a,b)=>b.date.localeCompare(a.date));
 
   const total = filtered.reduce((s,e)=>s+e.amount,0);
-  const splitColors = { compartido:C.selected, personal:C.muted, prestamo:C.gri };
-  const splitLabels = { compartido:'Compartido', personal:'Personal', prestamo:'Préstamo' };
+  const splitColors = { compartido:C.selected, toba:C.toba, gri:C.gri, personal:C.muted, prestamo:C.muted };
+  const splitLabels = { compartido:'Compartido', toba:'Solo Toba', gri:'Solo Gri', personal:'Personal', prestamo:'Préstamo' };
 
   const handleDeleteTap = exp => {
     if (exp.installmentGroupId) setDeleteModal({exp});
@@ -1156,7 +1174,7 @@ function ExpenseList({ expenses, month, setMonth, config, onEdit, onDelete }) {
       <MonthNav month={month} setMonth={setMonth} />
 
       <div style={{ display:'flex', gap:8, marginBottom:10, overflowX:'auto', paddingBottom:2 }}>
-        {[['all','Todos'],['compartido','Compartidos'],['personal','Personales'],['prestamo','Préstamos']].map(([val,lbl])=>(
+        {[['all','Todos'],['compartido','Compartidos'],['toba','Solo Toba'],['gri','Solo Gri']].map(([val,lbl])=>(
           <button key={val} onClick={()=>setFilter(val)} style={S.chip(filter===val)}>{lbl}</button>
         ))}
       </div>
@@ -1184,6 +1202,8 @@ function ExpenseList({ expenses, month, setMonth, config, onEdit, onDelete }) {
         const isExp = expandedId===exp.id;
         let debtStr = '';
         if (exp.split==='compartido') debtStr = `${exp.paidBy==='toba'?'Gri':'Toba'} debe ${fmt(exp.amount*(exp.paidBy==='toba'?p.g:p.t))}`;
+        else if (exp.split==='toba' && exp.paidBy==='gri') debtStr = `Toba debe devolver ${fmt(exp.amount)} a Gri`;
+        else if (exp.split==='gri'  && exp.paidBy==='toba') debtStr = `Gri debe devolver ${fmt(exp.amount)} a Toba`;
         else if (exp.split==='prestamo') debtStr = `${exp.paidBy==='toba'?'Gri':'Toba'} debe ${fmt(exp.amount)} (préstamo)`;
 
         return (
