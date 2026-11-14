@@ -1226,9 +1226,12 @@ function ExpenseList({ expenses, month, setMonth, config, onEdit, onDelete }) {
 
 // ─── CARDS VIEW (con cuotas activas) ─────────────────────────────────────────
 
-function CardsView({ expenses, month, setMonth, config }) {
+function CardsView({ expenses, month, setMonth, config, onEdit }) {
   const p = calcPcts(config.salaryToba, config.salaryGri);
   const mExps = expenses.filter(e=>e.month===month&&e.paymentType==='tarjeta');
+  const [collapsed, setCollapsed] = useState({});
+
+  const toggleCollapse = (cardId) => setCollapsed(prev => ({ ...prev, [cardId]: !prev[cardId] }));
 
   // Cuotas activas: grupos de cuotas con al menos una cuota futura o del mes actual
   const getActiveInstallments = (cardId) => {
@@ -1244,7 +1247,6 @@ function CardsView({ expenses, month, setMonth, config }) {
       const first  = sorted[0];
       const allInstallments = expenses.filter(e=>e.installmentGroupId===first.installmentGroupId);
       const maxInst = Math.max(...allInstallments.map(e=>e.installments?.total||0));
-      const maxCurrent = Math.max(...allInstallments.map(e=>e.installments?.current||0));
       const remaining = sorted.length;
       return { ...first, remaining, totalInstallments: maxInst, currentInstallment: first.installments?.current||0 };
     }).sort((a,b)=>a.description.localeCompare(b.description));
@@ -1256,104 +1258,118 @@ function CardsView({ expenses, month, setMonth, config }) {
 
       {CARDS.map(card => {
         const cardExps      = mExps.filter(e=>e.card===card.id).sort((a,b)=>b.date.localeCompare(a.date));
+        const simpleExps    = cardExps.filter(e=>!e.installmentGroupId);
         const total         = cardExps.reduce((s,e)=>s+e.amount,0);
         const totalShared   = cardExps.filter(e=>e.split==='compartido').reduce((s,e)=>s+e.amount,0);
         const otherOwes     = card.owner==='toba'?totalShared*p.g:totalShared*p.t;
         const otherName     = card.owner==='toba'?'Gri':'Toba';
         const activeInstall = getActiveInstallments(card.id);
+        const isCollapsed   = !!collapsed[card.id];
 
         return (
           <div key={card.id} style={{ ...S.card, overflow:'hidden', padding:0 }}>
-            {/* Header */}
-            <div style={{ background:card.bg, padding:'18px 20px', borderBottom:`1px solid ${card.accent}33` }}>
+            {/* Header — tappable para colapsar */}
+            <div
+              onClick={() => toggleCollapse(card.id)}
+              style={{ background:card.bg, padding:'18px 20px', borderBottom: isCollapsed ? 'none' : `1px solid ${card.accent}33`, cursor:'pointer', userSelect:'none' }}
+            >
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontSize:16, fontWeight:800, color:card.accent }}>💳 {card.label}</div>
                   <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>Titular: {card.owner==='toba'?'Toba':'Gri'}</div>
                 </div>
-                <div style={{ textAlign:'right' }}>
-                  <div style={{ fontSize:24, fontWeight:800, color:C.text }}>{fmt(total)}</div>
-                  <div style={{ fontSize:11, color:C.muted }}>total del mes</div>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:24, fontWeight:800, color:C.text }}>{fmt(total)}</div>
+                    <div style={{ fontSize:11, color:C.muted }}>total del mes</div>
+                  </div>
+                  <div style={{ fontSize:18, color:C.muted, transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition:'transform 0.2s' }}>›</div>
                 </div>
               </div>
             </div>
 
-            <div style={{ padding:'16px 20px' }}>
-              {/* Deuda compartida */}
-              {totalShared>0 && (
-                <div style={{ background:card.accent+'0D', border:`1px solid ${card.accent}25`, borderRadius:R.sm, padding:'12px 14px', marginBottom:16 }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:card.accent, marginBottom:4 }}>Compartidos: {fmt(totalShared)}</div>
-                  <div style={{ fontSize:14, color:C.text }}>{otherName} debe <strong style={{ color:card.accent }}>{fmt(otherOwes)}</strong> <span style={{ fontSize:12, color:C.muted }}>({fmtPct(card.owner==='toba'?p.g:p.t)})</span></div>
-                </div>
-              )}
-
-              {/* Cuotas activas */}
-              {activeInstall.length > 0 && (
-                <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12 }}>
-                    ⏱ Cuotas activas ({activeInstall.length})
+            {!isCollapsed && (
+              <div style={{ padding:'16px 20px' }}>
+                {/* Deuda compartida */}
+                {totalShared>0 && (
+                  <div style={{ background:card.accent+'0D', border:`1px solid ${card.accent}25`, borderRadius:R.sm, padding:'12px 14px', marginBottom:16 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:card.accent, marginBottom:4 }}>Compartidos: {fmt(totalShared)}</div>
+                    <div style={{ fontSize:14, color:C.text }}>{otherName} debe <strong style={{ color:card.accent }}>{fmt(otherOwes)}</strong> <span style={{ fontSize:12, color:C.muted }}>({fmtPct(card.owner==='toba'?p.g:p.t)})</span></div>
                   </div>
-                  {activeInstall.map((inst, i) => {
-                    const paidInstallments = inst.totalInstallments - inst.remaining;
-                    const progress = inst.totalInstallments > 0 ? paidInstallments / inst.totalInstallments : 0;
-                    const cat = CATS.find(c=>c.id===inst.category)||{icon:'📦'};
-                    return (
-                      <div key={inst.installmentGroupId} style={{ marginBottom: i<activeInstall.length-1?12:0 }}>
-                        {i>0 && <div style={{ ...S.divider, marginBottom:12 }} />}
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontSize:13, fontWeight:600, color:C.text, display:'flex', alignItems:'center', gap:6 }}>
-                              <span>{cat.icon}</span>
-                              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inst.description||'Sin descripción'}</span>
-                            </div>
-                            <div style={{ fontSize:11, color:C.muted, marginTop:3 }}>
-                              Cuota {inst.currentInstallment}/{inst.totalInstallments} · {fmt(inst.amount)}/mes · {inst.remaining} cuota{inst.remaining!==1?'s':''} restante{inst.remaining!==1?'s':''}
-                            </div>
-                          </div>
-                          <div style={{ ...S.badge(card.accent), marginLeft:10, flexShrink:0 }}>
-                            {inst.currentInstallment}/{inst.totalInstallments}
-                          </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{ height:4, background:C.card3, borderRadius:R.pill }}>
-                          <div style={{ height:'100%', width:`${progress*100}%`, background:card.accent, borderRadius:R.pill, transition:'width 0.3s' }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                )}
 
-              {/* Gastos del mes */}
-              {cardExps.length===0 ? (
-                <div style={{ textAlign:'center', padding:'20px 0', color:C.muted, fontSize:14 }}>Sin gastos este mes</div>
-              ) : (<>
-                <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12 }}>Gastos del mes</div>
-                {cardExps.map((exp,i) => {
-                  const cat = CATS.find(c=>c.id===exp.category)||{icon:'📦'};
-                  const isShared = exp.split==='compartido';
-                  return (
-                    <div key={exp.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderTop:i===0?'none':`1px solid ${C.border}` }}>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:14, color:C.text, fontWeight:isShared?600:400, display:'flex', alignItems:'center', gap:8 }}>
-                          <span>{cat.icon}</span>
-                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{exp.description||<em style={{ color:C.muted }}>Sin descripción</em>}</span>
+                {/* Gastos del mes (solo simples, sin cuotas) */}
+                {simpleExps.length===0 && activeInstall.length===0 ? (
+                  <div style={{ textAlign:'center', padding:'20px 0', color:C.muted, fontSize:14 }}>Sin gastos este mes</div>
+                ) : (<>
+                  {simpleExps.length > 0 && (<>
+                    <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12 }}>Gastos del mes</div>
+                    {simpleExps.map((exp,i) => {
+                      const cat = CATS.find(c=>c.id===exp.category)||{icon:'📦'};
+                      const isShared = exp.split==='compartido';
+                      return (
+                        <div key={exp.id} onClick={()=>onEdit&&onEdit(exp)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderTop:i===0?'none':`1px solid ${C.border}`, cursor: onEdit ? 'pointer' : 'default' }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:14, color:C.text, fontWeight:isShared?600:400, display:'flex', alignItems:'center', gap:8 }}>
+                              <span>{cat.icon}</span>
+                              <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{exp.description||<em style={{ color:C.muted }}>Sin descripción</em>}</span>
+                            </div>
+                            <div style={{ display:'flex', gap:10, marginTop:4 }}>
+                              <span style={{ fontSize:12, color:C.muted }}>{shortDate(exp.date)}</span>
+                              {!isShared&&<span style={{ fontSize:12, color:C.muted }}>Personal</span>}
+                            </div>
+                          </div>
+                          <div style={{ textAlign:'right', flexShrink:0, marginLeft:14 }}>
+                            <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmt(exp.amount)}</div>
+                            {isShared&&<div style={{ fontSize:11, color:card.accent, marginTop:2 }}>{otherName}: {fmt(exp.amount*(card.owner==='toba'?p.g:p.t))}</div>}
+                          </div>
                         </div>
-                        <div style={{ display:'flex', gap:10, marginTop:4 }}>
-                          <span style={{ fontSize:12, color:C.muted }}>{shortDate(exp.date)}</span>
-                          {exp.installments&&<span style={{ fontSize:12, color:C.muted }}>Cuota {exp.installments.current}/{exp.installments.total}</span>}
-                          {!isShared&&<span style={{ fontSize:12, color:C.muted }}>Personal</span>}
-                        </div>
+                      );
+                    })}
+                  </>)}
+
+                  {/* Cuotas activas */}
+                  {activeInstall.length > 0 && (
+                    <div style={{ marginTop: simpleExps.length > 0 ? 20 : 0 }}>
+                      {simpleExps.length > 0 && <div style={{ ...S.divider, marginBottom:20 }} />}
+                      <div style={{ fontSize:12, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:12 }}>
+                        ⏱ Cuotas activas ({activeInstall.length})
                       </div>
-                      <div style={{ textAlign:'right', flexShrink:0, marginLeft:14 }}>
-                        <div style={{ fontSize:15, fontWeight:700, color:C.text }}>{fmt(exp.amount)}</div>
-                        {isShared&&<div style={{ fontSize:11, color:card.accent, marginTop:2 }}>{otherName}: {fmt(exp.amount*(card.owner==='toba'?p.g:p.t))}</div>}
-                      </div>
+                      {activeInstall.map((inst, i) => {
+                        const paidInstallments = inst.totalInstallments - inst.remaining;
+                        const progress = inst.totalInstallments > 0 ? paidInstallments / inst.totalInstallments : 0;
+                        const cat = CATS.find(c=>c.id===inst.category)||{icon:'📦'};
+                        // find the expense for this month to pass to onEdit
+                        const thisMonthExp = expenses.find(e=>e.installmentGroupId===inst.installmentGroupId&&e.month===month);
+                        return (
+                          <div key={inst.installmentGroupId} onClick={()=>onEdit&&thisMonthExp&&onEdit(thisMonthExp)} style={{ marginBottom: i<activeInstall.length-1?12:0, cursor: onEdit&&thisMonthExp ? 'pointer' : 'default' }}>
+                            {i>0 && <div style={{ ...S.divider, marginBottom:12 }} />}
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, fontWeight:600, color:C.text, display:'flex', alignItems:'center', gap:6 }}>
+                                  <span>{cat.icon}</span>
+                                  <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inst.description||'Sin descripción'}</span>
+                                </div>
+                                <div style={{ fontSize:11, color:C.muted, marginTop:3 }}>
+                                  Cuota {inst.currentInstallment}/{inst.totalInstallments} · {fmt(inst.amount)}/mes · {inst.remaining} cuota{inst.remaining!==1?'s':''} restante{inst.remaining!==1?'s':''}
+                                </div>
+                              </div>
+                              <div style={{ ...S.badge(card.accent), marginLeft:10, flexShrink:0 }}>
+                                {inst.currentInstallment}/{inst.totalInstallments}
+                              </div>
+                            </div>
+                            {/* Progress bar */}
+                            <div style={{ height:4, background:C.card3, borderRadius:R.pill }}>
+                              <div style={{ height:'100%', width:`${progress*100}%`, background:card.accent, borderRadius:R.pill, transition:'width 0.3s' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </>)}
-            </div>
+                  )}
+                </>)}
+              </div>
+            )}
           </div>
         );
       })}
@@ -1696,7 +1712,7 @@ function MainApp({ me, email }) {
           {view==='resumen'   && <ResumedScreen expenses={expenses} config={monthConfig} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} hasMonthConfig={!!monthlyConfigs[month]} onGoToSettings={()=>setView('settings')} />}
           {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} />}
           {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit />}
-          {view==='cards'     && <CardsView expenses={expenses} month={month} setMonth={setMonth} config={monthConfig} />}
+          {view==='cards'     && <CardsView expenses={expenses} month={month} setMonth={setMonth} config={monthConfig} onEdit={exp=>{setEditingExpense(exp);setView('edit');}} />}
           {view==='settings'  && <Settings monthlyConfigs={monthlyConfigs} month={month} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} email={email} me={me} onSignOut={signOut} />}
         </>); })()}
       </div>
