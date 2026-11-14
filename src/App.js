@@ -866,7 +866,7 @@ function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSe
 
 // ─── EXPENSE FORM ─────────────────────────────────────────────────────────────
 
-function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) {
+function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false, me = 'toba' }) {
   const [quickMode, setQuickMode] = useState(false);
   const [form, setForm] = useState(() => ({
     description:     initialValues?.description             || '',
@@ -1042,12 +1042,12 @@ function ExpenseForm({ onSave, onAddRecurring, initialValues, isEdit = false }) 
 
           <div style={{ marginBottom:20 }}>
             <label style={S.label}>División</label>
-            <Toggle options={[{value:'compartido',label:'🤝 Compartido'},{value:'personal',label:'👤 Personal'},{value:'prestamo',label:'💸 Préstamo'}]}
+            <Toggle options={[{value:'compartido',label:'🤝 Compartido'},{value:'personal',label:`👤 Solo ${me==='toba'?'Toba':'Gri'}`},{value:'prestamo',label:`💸 Solo ${me==='toba'?'Gri':'Toba'}`}]}
               value={form.split} onChange={v=>set('split',v)} />
             <div style={{ fontSize:12, color:C.muted, marginTop:8 }}>
               {form.split==='compartido'&&'→ Se divide según el proporcional del mes'}
-              {form.split==='personal'&&'→ No afecta el balance compartido'}
-              {form.split==='prestamo'&&'→ El 100% lo debe quien lo recibió'}
+              {form.split==='personal'&&`→ Gasto personal de ${me==='toba'?'Toba':'Gri'}, no afecta el balance`}
+              {form.split==='prestamo'&&`→ El 100% lo debe ${me==='toba'?'Gri':'Toba'}`}
             </div>
           </div>
 
@@ -1229,9 +1229,15 @@ function ExpenseList({ expenses, month, setMonth, config, onEdit, onDelete }) {
 function CardsView({ expenses, month, setMonth, config, onEdit }) {
   const p = calcPcts(config.salaryToba, config.salaryGri);
   const mExps = expenses.filter(e=>e.month===month&&e.paymentType==='tarjeta');
-  const [collapsed, setCollapsed] = useState({});
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('cards-collapsed') || '{}'); } catch { return {}; }
+  });
 
-  const toggleCollapse = (cardId) => setCollapsed(prev => ({ ...prev, [cardId]: !prev[cardId] }));
+  const toggleCollapse = (cardId) => setCollapsed(prev => {
+    const next = { ...prev, [cardId]: !prev[cardId] };
+    try { localStorage.setItem('cards-collapsed', JSON.stringify(next)); } catch {}
+    return next;
+  });
 
   // Cuotas activas: grupos de cuotas con al menos una cuota futura o del mes actual
   const getActiveInstallments = (cardId) => {
@@ -1336,8 +1342,9 @@ function CardsView({ expenses, month, setMonth, config, onEdit }) {
                         ⏱ Cuotas activas ({activeInstall.length})
                       </div>
                       {activeInstall.map((inst, i) => {
+                        const isLastInstallment = inst.remaining === 1 && inst.currentInstallment === inst.totalInstallments;
                         const paidInstallments = inst.totalInstallments - inst.remaining;
-                        const progress = inst.totalInstallments > 0 ? paidInstallments / inst.totalInstallments : 0;
+                        const progress = isLastInstallment ? 1 : (inst.totalInstallments > 0 ? paidInstallments / inst.totalInstallments : 0);
                         const cat = CATS.find(c=>c.id===inst.category)||{icon:'📦'};
                         // find the expense for this month to pass to onEdit
                         const thisMonthExp = expenses.find(e=>e.installmentGroupId===inst.installmentGroupId&&e.month===month);
@@ -1710,8 +1717,8 @@ function MainApp({ me, email }) {
         {(() => { const monthConfig = getConfigForMonth(monthlyConfigs, month); return (<>
           {view==='activity'  && <ActivityScreen expenses={expenses} config={monthConfig} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} onEdit={exp=>{setEditingExpense(exp);setView('edit');}} onDelete={handleDelete} />}
           {view==='resumen'   && <ResumedScreen expenses={expenses} config={monthConfig} month={month} setMonth={setMonth} settlements={settlements} onAddSettlement={handleAddSettlement} onDeleteSettlement={handleDeleteSettlement} recurringExpenses={recurringExpenses} hasMonthConfig={!!monthlyConfigs[month]} onGoToSettings={()=>setView('settings')} />}
-          {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} />}
-          {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit />}
+          {view==='add'       && <ExpenseForm onSave={handleAdd} onAddRecurring={handleAddRecurring} me={me} />}
+          {view==='edit' && editingExpense && <ExpenseForm onSave={handleEdit} onAddRecurring={handleAddRecurring} initialValues={editingExpense} isEdit me={me} />}
           {view==='cards'     && <CardsView expenses={expenses} month={month} setMonth={setMonth} config={monthConfig} onEdit={exp=>{setEditingExpense(exp);setView('edit');}} />}
           {view==='settings'  && <Settings monthlyConfigs={monthlyConfigs} month={month} onSave={handleConfig} expenses={expenses} settlements={settlements} recurringExpenses={recurringExpenses} onDeleteRecurring={handleDeleteRecurring} onImport={handleImport} email={email} me={me} onSignOut={signOut} />}
         </>); })()}
