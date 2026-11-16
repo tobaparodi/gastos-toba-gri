@@ -575,7 +575,8 @@ function SwipeableRow({ exp, idx, isLast, onEdit, onDeleteRequest }) {
             {exp.description || cat?.label}
           </div>
           <div style={{ fontSize:12, color:C.muted, marginTop:1 }}>
-            {exp.paidBy === 'toba' ? '● Toba' : '● Gri'}
+            <span style={{ color: exp.paidBy === 'toba' ? C.toba : C.gri }}>●</span>
+            {exp.paidBy === 'toba' ? ' Toba' : ' Gri'}
             {exp.split === 'compartido' ? ' · Compartido' : exp.split === 'toba' ? ' · Solo Toba' : exp.split === 'gri' ? ' · Solo Gri' : exp.split === 'personal' ? ' · Personal' : ' · Préstamo'}
             {exp.installments ? ` · ${exp.installments.current}/${exp.installments.total}` : ''}
           </div>
@@ -595,13 +596,19 @@ function SwipeableRow({ exp, idx, isLast, onEdit, onDeleteRequest }) {
 function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddSettlement, onDeleteSettlement, recurringExpenses, onEdit, onDelete }) {
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [deleteConfirm,   setDeleteConfirm]   = useState(null); // gasto a confirmar
+  const [searchQuery,     setSearchQuery]     = useState('');
 
   const mExps = expenses.filter(e => e.month === month);
   const totalShared = mExps.filter(e => hasBalanceEffect(e)).reduce((s,e) => s+e.amount, 0);
 
+  // Filtrar por búsqueda
+  const filteredExps = searchQuery.trim()
+    ? mExps.filter(e => e.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+    : mExps;
+
   // Agrupar por fecha
   const byDate = {};
-  [...mExps].sort((a,b) => b.date.localeCompare(a.date)).forEach(e => {
+  [...filteredExps].sort((a,b) => b.date.localeCompare(a.date)).forEach(e => {
     if (!byDate[e.date]) byDate[e.date] = [];
     byDate[e.date].push(e);
   });
@@ -650,6 +657,34 @@ function ActivityScreen({ expenses, config, month, setMonth, settlements, onAddS
 
           {/* Bar chart */}
           <BarChart expenses={expenses} month={month} />
+
+          {/* Barra de búsqueda */}
+          <div style={{ position:'relative', marginTop:14 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+              style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}>
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="#8E8E93" strokeWidth="1.5"/>
+              <path d="M10.5 10.5l3 3" stroke="#8E8E93" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Buscar gasto..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width:'100%', boxSizing:'border-box',
+                background:C.card, border:`1px solid ${C.border}`,
+                borderRadius:12, padding:'10px 12px 10px 36px',
+                fontSize:14, color:C.text, fontFamily:'inherit',
+                outline:'none', caretColor:C.selected,
+              }}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')}
+                style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                  background:'transparent', border:'none', cursor:'pointer', padding:4,
+                  color:C.muted, fontSize:16, lineHeight:1 }}>✕</button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -733,12 +768,16 @@ function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSe
   const mSetts  = settlements.filter(s => s.month === month);
   const { griOwesToba, tobaOwesGri, net } = calcNetBalance(mExps, config, mSetts);
 
-  const tobaTotal = mExps.filter(e => e.paidBy==='toba').reduce((s,e)=>s+e.amount,0);
-  const griTotal  = mExps.filter(e => e.paidBy==='gri' ).reduce((s,e)=>s+e.amount,0);
   const totalMes  = mExps.filter(e => hasBalanceEffect(e)).reduce((s,e)=>s+e.amount,0);
 
+  // Cuánto le corresponde pagar a cada uno según el proporcional
+  const tobaShare = mExps.filter(e=>e.split==='compartido').reduce((s,e)=>s+e.amount*p.t,0)
+    + mExps.filter(e=>e.split==='toba').reduce((s,e)=>s+Math.abs(e.amount),0);
+  const griShare  = mExps.filter(e=>e.split==='compartido').reduce((s,e)=>s+e.amount*p.g,0)
+    + mExps.filter(e=>e.split==='gri').reduce((s,e)=>s+Math.abs(e.amount),0);
+
   const byCat = {};
-  mExps.filter(e=>e.split==='compartido').forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+e.amount; });
+  mExps.filter(e=>e.amount>0).forEach(e=>{ byCat[e.category]=(byCat[e.category]||0)+e.amount; });
   const topCats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   const debtor   = net > 100?'Gri':net<-100?'Toba':null;
@@ -805,17 +844,17 @@ function ResumedScreen({ expenses, config, month, setMonth, settlements, onAddSe
 
         {/* Pagado por persona */}
         <div style={{ background:C.card, borderRadius:20, padding:'20px', marginBottom:12, border:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:12, fontWeight:600, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:14 }}>Pagaron este mes</div>
+          <div style={{ fontSize:12, fontWeight:600, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:14 }}>Le corresponde pagar</div>
           <div style={{ display:'flex', gap:10 }}>
             <div style={{ flex:1, background:C.toba+'18', borderRadius:14, padding:'14px' }}>
               <div style={{ fontSize:11, color:C.toba, fontWeight:700, marginBottom:4 }}>TOBA</div>
-              <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{fmt(tobaTotal)}</div>
-              <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{fmtPct(p.t)} del total</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{fmt(tobaShare)}</div>
+              <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{fmtPct(p.t)} compartido + propios</div>
             </div>
             <div style={{ flex:1, background:C.gri+'18', borderRadius:14, padding:'14px' }}>
               <div style={{ fontSize:11, color:C.gri, fontWeight:700, marginBottom:4 }}>GRI</div>
-              <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{fmt(griTotal)}</div>
-              <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{fmtPct(p.g)} del total</div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.text }}>{fmt(griShare)}</div>
+              <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{fmtPct(p.g)} compartido + propios</div>
             </div>
           </div>
         </div>
